@@ -1,4 +1,4 @@
-const { pool } = require('../config/database');
+const { getPool } = require('../config/database');
 
 // Helper to record transaction
 const recordTransaction = async (client, user_id, type, amount, status, reference = null, recipient_account_number = null) => {
@@ -17,7 +17,7 @@ const deposit = async (req, res) => {
         return res.status(400).json({ success: false, message: 'Invalid deposit amount' });
     }
 
-    const client = await pool.connect();
+    const client = await getPool().connect();
     try {
         await client.query('BEGIN'); // Start transaction
 
@@ -49,7 +49,7 @@ const withdraw = async (req, res) => {
         return res.status(400).json({ success: false, message: 'Invalid withdrawal amount' });
     }
 
-    const client = await pool.connect();
+    const client = await getPool().connect();
     try {
         await client.query('BEGIN');
 
@@ -86,7 +86,7 @@ const transfer = async (req, res) => {
         return res.status(400).json({ success: false, message: 'Invalid transfer details' });
     }
 
-    const client = await pool.connect();
+    const client = await getPool().connect();
     try {
         await client.query('BEGIN');
 

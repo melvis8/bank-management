@@ -1,4 +1,4 @@
-const { pool } = require('../config/database');
+const { getPool } = require('../config/database');
 const { validationResult } = require('express-validator');
 
 /**
@@ -61,7 +61,7 @@ const addUser = async (req, res) => {
 
   const { first_name, last_name, email, phone, address, account_type, initial_deposit } = req.body;
 
-  const client = await pool.connect();
+  const client = await getPool().connect();
   try {
     const account_number = generateAccountNumber();
     const balance = initial_deposit || 0.0;
@@ -166,7 +166,7 @@ const getAllUsers = async (req, res) => {
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-  const client = await pool.connect();
+  const client = await getPool().connect();
   try {
     // Run total count and paginated data in parallel for efficiency
     const [countResult, usersResult] = await Promise.all([

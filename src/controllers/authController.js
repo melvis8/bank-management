@@ -1,4 +1,4 @@
-const { pool } = require('../config/database');
+const { getPool } = require('../config/database');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
@@ -14,7 +14,7 @@ const register = async (req, res) => {
     return res.status(400).json({ success: false, message: 'Please provide all required fields' });
   }
 
-  const client = await pool.connect();
+  const client = await getPool().connect();
   try {
     const salt = await bcrypt.genSalt(10);
     const password_hash = await bcrypt.hash(password, salt);
@@ -54,7 +54,7 @@ const login = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Please provide email and password' });
   }
 
-  const client = await pool.connect();
+  const client = await getPool().connect();
   try {
     const result = await client.query('SELECT * FROM users WHERE email = $1', [email]);
     if (result.rows.length === 0) {

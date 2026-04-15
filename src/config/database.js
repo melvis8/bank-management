@@ -1,25 +1,67 @@
 const { Pool } = require('pg');
+const dns = require('dns');
+const { URL } = require('url');
 
 /**
- * PostgreSQL Connection Pool
+ * PostgreSQL Connection Pool — Neon-compatible
  *
- * Uses the standard `pg` driver with SSL for direct TCP connections to Neon.
- * This is the recommended approach for long-running Node.js servers (Express,
- * Render, Railway, etc.) — faster and more reliable than the WebSocket-based
- * @neondatabase/serverless driver which is designed for edge/serverless runtimes.
+ * On some networks / Node.js versions, DNS happy-eyeballs resolution causes
+ * timeouts when connecting to Neon's multi-IP hostnames. This module resolves
+ * the host to an IPv4 address first, then connects directly by IP while
+ * passing the original hostname as the TLS SNI servername (required by Neon
+ * to route to the correct project).
+ *
+ * This approach is reliable locally and on Render / Railway / etc.
  */
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000,
-  ssl: {
-    rejectUnauthorized: false,   // Neon uses valid certs, but this avoids
-  },                              // CA-chain issues on dev machines
-});
 
-pool.on('connect', () => console.log('[DB] Client connected to pool'));
-pool.on('error', (err) => console.error('[DB] Pool error:', err.message));
+let pool = null;
+
+/**
+ * Parse DATABASE_URL and create a Pool that bypasses DNS issues.
+ */
+const createPool = async () => {
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) throw new Error('DATABASE_URL is not set');
+
+  const parsed = new URL(dbUrl);
+  const hostname = parsed.hostname;
+  const port = parseInt(parsed.port, 10) || 5432;
+  const database = parsed.pathname.replace(/^\//, '');
+  const user = decodeURIComponent(parsed.username);
+  const password = decodeURIComponent(parsed.password);
+
+  // Resolve hostname to IPv4 to avoid Node.js happy-eyeballs timeouts
+  let host = hostname;
+  try {
+    const addresses = await dns.promises.resolve4(hostname);
+    if (addresses.length > 0) {
+      host = addresses[0];
+      console.log(`[DB] Resolved ${hostname} → ${host}`);
+    }
+  } catch {
+    console.warn('[DB] DNS resolve4 failed, falling back to hostname');
+  }
+
+  pool = new Pool({
+    host,
+    port,
+    user,
+    password,
+    database,
+    max: 20,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 15000,
+    ssl: {
+      rejectUnauthorized: false,
+      servername: hostname,        // TLS SNI — Neon uses this to route to your project
+    },
+  });
+
+  pool.on('connect', () => console.log('[DB] Client connected to pool'));
+  pool.on('error', (err) => console.error('[DB] Pool error:', err.message));
+
+  return pool;
+};
 
 /**
  * Run all schema migrations (create tables if they do not exist)
@@ -62,11 +104,13 @@ const runMigrations = async (client) => {
 };
 
 /**
- * Initialize DB with retry logic.
+ * Initialize DB: create the pool (with DNS resolution), connect, run migrations.
  * Retries are handled by the caller (connectDBInBackground in index.js).
  */
 const initializeDatabase = async () => {
   console.log('[DB] Connecting to PostgreSQL (direct TCP/SSL)...');
+  if (!pool) await createPool();
+
   const client = await pool.connect();
   try {
     await runMigrations(client);
@@ -80,4 +124,13 @@ const initializeDatabase = async () => {
   }
 };
 
-module.exports = { pool, initializeDatabase };
+/**
+ * Lazy getter — modules that import `pool` will use this proxy.
+ * The actual Pool is created in initializeDatabase().
+ */
+const getPool = () => {
+  if (!pool) throw new Error('Database not initialized yet. Call initializeDatabase() first.');
+  return pool;
+};
+
+module.exports = { getPool, initializeDatabase };
