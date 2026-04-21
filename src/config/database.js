@@ -4,21 +4,10 @@ const { URL } = require('url');
 
 /**
  * PostgreSQL Connection Pool — Neon-compatible
- *
- * On some networks / Node.js versions, DNS happy-eyeballs resolution causes
- * timeouts when connecting to Neon's multi-IP hostnames. This module resolves
- * the host to an IPv4 address first, then connects directly by IP while
- * passing the original hostname as the TLS SNI servername (required by Neon
- * to route to the correct project).
- *
- * This approach is reliable locally and on Render / Railway / etc.
  */
 
 let pool = null;
 
-/**
- * Parse DATABASE_URL and create a Pool that bypasses DNS issues.
- */
 const createPool = async () => {
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) throw new Error('DATABASE_URL is not set');
@@ -30,7 +19,6 @@ const createPool = async () => {
   const user = decodeURIComponent(parsed.username);
   const password = decodeURIComponent(parsed.password);
 
-  // Resolve hostname to IPv4 to avoid Node.js happy-eyeballs timeouts
   let host = hostname;
   try {
     const addresses = await dns.promises.resolve4(hostname);
@@ -53,7 +41,7 @@ const createPool = async () => {
     connectionTimeoutMillis: 15000,
     ssl: {
       rejectUnauthorized: false,
-      servername: hostname,        // TLS SNI — Neon uses this to route to your project
+      servername: hostname,
     },
   });
 
@@ -64,18 +52,18 @@ const createPool = async () => {
 };
 
 /**
- * Run all schema migrations (create tables if they do not exist)
+ * Run all schema migrations
  */
 const runMigrations = async (client) => {
   await client.query(`CREATE EXTENSION IF NOT EXISTS pgcrypto;`);
 
-  // Force cleanup of the old table if it exists to ensure clean start
-  await client.query(`DROP TABLE IF EXISTS users CASCADE;`);
+  // Cleanup students table if it exists from previous iteration
+  await client.query(`DROP TABLE IF EXISTS students CASCADE;`);
 
   await client.query(`
-    CREATE TABLE IF NOT EXISTS students (
+    CREATE TABLE IF NOT EXISTS users (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      student_id VARCHAR(50) UNIQUE NOT NULL,
+      user_id VARCHAR(50) UNIQUE NOT NULL,
       first_name VARCHAR(100) NOT NULL,
       last_name VARCHAR(100) NOT NULL,
       email VARCHAR(255) UNIQUE NOT NULL,
@@ -91,12 +79,12 @@ const runMigrations = async (client) => {
     );
   `);
 
-  // Check if transactions table exists with old column name and rename it or recreate it
+  // Ensure transactions table uses user_id
   await client.query(`
     DO $$ 
     BEGIN 
-      IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='transactions' AND column_name='user_id') THEN
-        ALTER TABLE transactions RENAME COLUMN user_id TO student_id;
+      IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='transactions' AND column_name='student_id') THEN
+        ALTER TABLE transactions RENAME COLUMN student_id TO user_id;
       END IF;
     END $$;
   `);
@@ -104,7 +92,7 @@ const runMigrations = async (client) => {
   await client.query(`
     CREATE TABLE IF NOT EXISTS transactions (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      student_id UUID REFERENCES students(id) ON DELETE CASCADE,
+      user_id UUID REFERENCES users(id) ON DELETE CASCADE,
       type VARCHAR(20) NOT NULL CHECK (type IN ('deposit', 'withdraw', 'transfer')),
       amount NUMERIC(15, 2) NOT NULL,
       status VARCHAR(20) NOT NULL DEFAULT 'completed',
@@ -115,10 +103,6 @@ const runMigrations = async (client) => {
   `);
 };
 
-/**
- * Initialize DB: create the pool (with DNS resolution), connect, run migrations.
- * Retries are handled by the caller (connectDBInBackground in index.js).
- */
 const initializeDatabase = async () => {
   console.log('[DB] Connecting to PostgreSQL (direct TCP/SSL)...');
   if (!pool) await createPool();
@@ -128,20 +112,15 @@ const initializeDatabase = async () => {
     await runMigrations(client);
     console.log('[DB] Database initialized successfully ✅');
   } catch (err) {
-    const msg = err.message || err.code || JSON.stringify(err);
-    console.error('[DB] Migration failed:', msg);
+    console.error('[DB] Migration failed:', err.message);
     throw err;
   } finally {
     client.release();
   }
 };
 
-/**
- * Lazy getter — modules that import `pool` will use this proxy.
- * The actual Pool is created in initializeDatabase().
- */
 const getPool = () => {
-  if (!pool) throw new Error('Database not initialized yet. Call initializeDatabase() first.');
+  if (!pool) throw new Error('Database not initialized yet.');
   return pool;
 };
 

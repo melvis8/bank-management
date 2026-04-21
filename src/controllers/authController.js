@@ -1,98 +1,87 @@
-const { getPool } = require('../config/database');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-
-const generateToken = (id, email) => {
-  return jwt.sign({ id, email }, process.env.JWT_SECRET || 'bms_super_secret_fallback_key', {
-    expiresIn: '30d',
-  });
-};
+const { getPool } = require('../config/database');
 
 const register = async (req, res) => {
-  const { student_id, first_name, last_name, email, password } = req.body;
-  if (!student_id || !first_name || !last_name || !email || !password) {
-    return res.status(400).json({ success: false, message: 'Veuillez fournir tous les champs requis (matricule, prénom, nom, email, mot de passe)' });
-  }
+  const { user_id, first_name, last_name, email, password, phone } = req.body;
 
-  const client = await getPool().connect();
   try {
+    const pool = getPool();
+    
+    // Check if user exists
+    const userExist = await pool.query('SELECT * FROM users WHERE email = $1 OR user_id = $2', [email, user_id]);
+    if (userExist.rows.length > 0) {
+      return res.status(400).json({ success: false, message: 'User already exists' });
+    }
+
+    // Hash password
     const salt = await bcrypt.genSalt(10);
     const password_hash = await bcrypt.hash(password, salt);
-    
-    const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const random = Math.floor(100000 + Math.random() * 900000);
-    const account_number = `BMS-${date}-${random}`;
 
-    const result = await client.query(
-      `INSERT INTO students (student_id, first_name, last_name, email, password_hash, account_number)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, student_id, first_name, last_name, email, account_number, balance`,
-      [student_id, first_name, last_name, email, password_hash, account_number]
+    // Generate account number
+    const account_number = `ACC-${Date.now()}`;
+
+    // Create user
+    const newUser = await pool.query(
+      'INSERT INTO users (user_id, first_name, last_name, email, password_hash, phone, account_number) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+      [user_id, first_name, last_name, email, password_hash, phone, account_number]
     );
 
-    const student = result.rows[0];
     res.status(201).json({
       success: true,
-      message: 'Compte étudiant créé avec succès',
-      token: generateToken(student.id, student.email),
-      data: student,
+      data: {
+        id: newUser.rows[0].id,
+        user_id: newUser.rows[0].user_id,
+        email: newUser.rows[0].email,
+        account_number: newUser.rows[0].account_number
+      }
     });
-  } catch (err) {
-    if (err.code === '23505') {
-       return res.status(409).json({ success: false, message: 'Le matricule ou l\'email existe déjà', error: 'DUPLICATE_ENTRY' });
-    }
-    console.error('[Auth] Register error:', err.message);
-    res.status(500).json({ success: false, message: 'Erreur serveur', error: 'INTERNAL_ERROR' });
-  } finally {
-    client.release();
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 };
 
 const login = async (req, res) => {
   const { email, password } = req.body;
 
-  if (!email || !password) {
-      return res.status(400).json({ success: false, message: 'Veuillez fournir l\'email et le mot de passe' });
-  }
-
-  const client = await getPool().connect();
   try {
-    const result = await client.query('SELECT * FROM students WHERE email = $1', [email]);
+    const pool = getPool();
+    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+
     if (result.rows.length === 0) {
-       return res.status(401).json({ success: false, message: 'Identifiants invalides', error: 'UNAUTHORIZED' });
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
-    const student = result.rows[0];
-    
-    if (!student.password_hash) {
-       return res.status(401).json({ success: false, message: 'Le compte nécessite une réinitialisation de mot de passe', error: 'UNAUTHORIZED' });
-    }
+    const user = result.rows[0];
+    const isMatch = await bcrypt.compare(password, user.password_hash);
 
-    const isMatch = await bcrypt.compare(password, student.password_hash);
     if (!isMatch) {
-       return res.status(401).json({ success: false, message: 'Identifiants invalides', error: 'UNAUTHORIZED' });
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
-    const studentData = {
-      id: student.id, 
-      student_id: student.student_id,
-      email: student.email, 
-      first_name: student.first_name, 
-      last_name: student.last_name, 
-      account_number: student.account_number, 
-      balance: student.balance
-    };
+    const token = jwt.sign(
+      { id: user.id, email: user.email },
+      process.env.JWT_SECRET || 'bms_super_secret_fallback_key',
+      { expiresIn: '24h' }
+    );
 
-    res.status(200).json({
+    res.json({
       success: true,
-      message: 'Connexion réussie',
-      token: generateToken(student.id, student.email),
-      data: studentData,
+      token,
+      user: {
+        id: user.id,
+        user_id: user.user_id,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        email: user.email,
+        account_number: user.account_number,
+        balance: user.balance
+      }
     });
-  } catch(err) {
-    console.error('[Auth] Login error:', err.message);
-    res.status(500).json({ success: false, message: 'Erreur serveur', error: 'INTERNAL_ERROR' });
-  } finally {
-    client.release();
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 };
 

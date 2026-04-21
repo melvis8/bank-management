@@ -9,58 +9,56 @@ const seedData = async () => {
         const pool = getPool();
         const client = await pool.connect();
 
-        console.log('\n--- Génération de 5 Étudiants ---');
+        console.log('\n--- Génération de 5 Utilisateurs ---');
         const password = 'Password123!';
         const salt = await bcrypt.genSalt(10);
         const password_hash = await bcrypt.hash(password, salt);
 
-        const studentsData = [
-            { student_id: 'STUD001', first_name: 'Alice', last_name: 'Nguema', email: 'alice@example.com', phone: '237600000001', balance: 5000 },
-            { student_id: 'STUD002', first_name: 'Bob', last_name: 'Moussa', email: 'bob@example.com', phone: '237600000002', balance: 10000 },
-            { student_id: 'STUD003', first_name: 'Charlie', last_name: 'Etoundi', email: 'charlie@example.com', phone: '237600000003', balance: 2500 },
-            { student_id: 'STUD004', first_name: 'David', last_name: 'Bekono', email: 'david@example.com', phone: '237600000004', balance: 15000 },
-            { student_id: 'STUD005', first_name: 'Eve', last_name: 'Onana', email: 'eve@example.com', phone: '237600000005', balance: 300 }
+        const usersData = [
+            { user_id: 'USR001', first_name: 'Alice', last_name: 'Zambo', email: 'alice@example.com', phone: '237600000001', balance: 5000 },
+            { user_id: 'USR002', first_name: 'Bob', last_name: 'Ndi', email: 'bob@example.com', phone: '237600000002', balance: 10000 },
+            { user_id: 'USR003', first_name: 'Charlie', last_name: 'Talla', email: 'charlie@example.com', phone: '237600000003', balance: 2500 },
+            { user_id: 'USR004', first_name: 'David', last_name: 'Kotto', email: 'david@example.com', phone: '237600000004', balance: 15000 },
+            { user_id: 'USR005', first_name: 'Eve', last_name: 'Biloa', email: 'eve@example.com', phone: '237600000005', balance: 300 }
         ];
 
-        const insertedStudents = [];
+        const insertedUsers = [];
 
-        for (const s of studentsData) {
-            const exist = await client.query('SELECT * FROM students WHERE email = $1 OR student_id = $2', [s.email, s.student_id]);
+        for (const u of usersData) {
+            const exist = await client.query('SELECT * FROM users WHERE email = $1 OR user_id = $2', [u.email, u.user_id]);
             if (exist.rows.length === 0) {
                 const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
                 const random = Math.floor(100000 + Math.random() * 900000);
-                const account_number = `BMS-${date}-${random}`;
+                const account_number = `ACC-${date}-${random}`;
 
                 const result = await client.query(
-                    `INSERT INTO students (student_id, first_name, last_name, email, password_hash, phone, account_number, balance)
+                    `INSERT INTO users (user_id, first_name, last_name, email, password_hash, phone, account_number, balance)
                      VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-                    [s.student_id, s.first_name, s.last_name, s.email, password_hash, s.phone, account_number, s.balance]
+                    [u.user_id, u.first_name, u.last_name, u.email, password_hash, u.phone, account_number, u.balance]
                 );
-                insertedStudents.push(result.rows[0]);
-                console.log(`✅ Créé : ${s.email} | Matricule: ${s.student_id} | Solde: ${s.balance} XAF`);
+                insertedUsers.push(result.rows[0]);
+                console.log(`✅ Créé : ${u.email} | ID: ${u.user_id} | Solde: ${u.balance} XAF`);
             } else {
-                insertedStudents.push(exist.rows[0]);
-                console.log(`ℹ️  Saut : ${s.email} existe déjà.`);
+                insertedUsers.push(exist.rows[0]);
+                console.log(`ℹ️  Saut : ${u.email} existe déjà.`);
             }
         }
 
         console.log('\n--- Génération de Transactions ---');
         let txCount = 0;
         
-        for (let i = 0; i < insertedStudents.length; i++) {
-            const current = insertedStudents[i];
+        for (let i = 0; i < insertedUsers.length; i++) {
+            const current = insertedUsers[i];
 
-            // 1. Dépôt de test (doit être >= 100)
             await client.query(
-                `INSERT INTO transactions (student_id, type, amount, status, reference) VALUES ($1, $2, $3, $4, $5)`,
+                `INSERT INTO transactions (user_id, type, amount, status, reference) VALUES ($1, $2, $3, $4, $5)`,
                 [current.id, 'deposit', 500, 'completed', 'Dépôt initial de test']
             );
             txCount++;
 
-            // 2. Retrait de test (doit être >= 100)
             if (current.balance >= 100) {
                 await client.query(
-                    `INSERT INTO transactions (student_id, type, amount, status, reference) VALUES ($1, $2, $3, $4, $5)`,
+                    `INSERT INTO transactions (user_id, type, amount, status, reference) VALUES ($1, $2, $3, $4, $5)`,
                     [current.id, 'withdraw', 100, 'completed', 'Retrait de test']
                 );
                 txCount++;
@@ -71,6 +69,7 @@ const seedData = async () => {
 
         client.release();
         console.log('\n🎉 Remplissage de la base de données terminé !');
+        console.log('\n💡 Pour charger la base de données, lancez : node seed.js');
         process.exit(0);
     } catch (error) {
         console.error('❌ Échec du remplissage :', error);

@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: bank-management-api
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - REDIS_URL=redis://redis:6379
+      - CORS_ORIGIN=*
+    depends_on:
+      - redis
+    restart: always
+
+  redis:
+    image: redis:alpine
+    container_name: bms-redis
+    ports:
+      - "6379:6379"
+    restart: always
+
+# Note: This setup uses your existing Neon PostgreSQL database via the DATABASE_URL in your .env file.
+# To run this, ensure you have your .env file with DATABASE_URL and JWT_SECRET in the root directory.
+# Then run: docker-compose up --build

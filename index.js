@@ -10,7 +10,7 @@ const RedisStore = require('rate-limit-redis').default;
 const { initializeDatabase } = require('./src/config/database');
 const { redisClient, initializeRedis } = require('./src/config/redis');
 const swaggerSpec = require('./src/config/swagger');
-const studentRoutes = require('./src/routes/studentRoutes');
+const userRoutes = require('./src/routes/userRoutes');
 const authRoutes = require('./src/routes/authRoutes');
 const transactionRoutes = require('./src/routes/transactionRoutes');
 
@@ -69,10 +69,10 @@ app.get('/api-docs.json', (_req, res) => {
 // ─── Root Endpoint ───────────────────────────────────────────────────────────
 app.get('/', (_req, res) => {
   res.json({
-    message: 'Welcome to the Student Bank Management System API',
+    message: 'Welcome to the Bank Management System API',
     documentation: `${process.env.API_BASE_URL || `http://localhost:${PORT}`}/api-docs`,
     health: `${process.env.API_BASE_URL || `http://localhost:${PORT}`}/health`,
-    version: '1.1.0',
+    version: '1.2.0',
   });
 });
 
@@ -82,8 +82,8 @@ app.get('/health', (_req, res) => {
     status: 'OK',
     database: dbReady ? 'connected' : 'connecting',
     timestamp: new Date().toISOString(),
-    service: 'Student Bank Management System API',
-    version: '1.1.0',
+    service: 'Bank Management System API',
+    version: '1.2.0',
   });
 });
 
@@ -100,7 +100,7 @@ app.use('/api/', (req, res, next) => {
 });
 
 // ─── API Routes ──────────────────────────────────────────────────────────────
-app.use('/api/students', studentRoutes);
+app.use('/api/users', userRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/transactions', transactionRoutes);
 
@@ -133,7 +133,7 @@ const connectDBInBackground = async () => {
       return;
     } catch (err) {
       if (process.env.NODE_ENV === 'test') {
-          dbReady = true; // In test mode we assume DB is handled
+          dbReady = true;
           return;
       }
       const msg = err.message || err.code || 'ETIMEDOUT';
@@ -143,7 +143,6 @@ const connectDBInBackground = async () => {
   }
 };
 
-// Start logic moved out of global scope for testing
 if (process.env.NODE_ENV !== 'test') {
     app.listen(PORT, () => {
         console.log(`\n🏦  Bank Management System API`);
