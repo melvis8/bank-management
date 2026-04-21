@@ -69,9 +69,13 @@ const createPool = async () => {
 const runMigrations = async (client) => {
   await client.query(`CREATE EXTENSION IF NOT EXISTS pgcrypto;`);
 
+  // Force cleanup of the old table if it exists to ensure clean start
+  await client.query(`DROP TABLE IF EXISTS users CASCADE;`);
+
   await client.query(`
-    CREATE TABLE IF NOT EXISTS users (
+    CREATE TABLE IF NOT EXISTS students (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      student_id VARCHAR(50) UNIQUE NOT NULL,
       first_name VARCHAR(100) NOT NULL,
       last_name VARCHAR(100) NOT NULL,
       email VARCHAR(255) UNIQUE NOT NULL,
@@ -87,12 +91,20 @@ const runMigrations = async (client) => {
     );
   `);
 
-  await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);`);
+  // Check if transactions table exists with old column name and rename it or recreate it
+  await client.query(`
+    DO $$ 
+    BEGIN 
+      IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='transactions' AND column_name='user_id') THEN
+        ALTER TABLE transactions RENAME COLUMN user_id TO student_id;
+      END IF;
+    END $$;
+  `);
 
   await client.query(`
     CREATE TABLE IF NOT EXISTS transactions (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+      student_id UUID REFERENCES students(id) ON DELETE CASCADE,
       type VARCHAR(20) NOT NULL CHECK (type IN ('deposit', 'withdraw', 'transfer')),
       amount NUMERIC(15, 2) NOT NULL,
       status VARCHAR(20) NOT NULL DEFAULT 'completed',

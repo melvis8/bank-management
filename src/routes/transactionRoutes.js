@@ -31,7 +31,7 @@ router.use(protect);
  *             properties:
  *               amount:
  *                 type: number
- *                 example: 50.00
+ *                 example: 100.00
  *     responses:
  *       200:
  *         description: Deposit successful
@@ -58,7 +58,7 @@ router.post('/deposit', deposit);
  *             properties:
  *               amount:
  *                 type: number
- *                 example: 30.00
+ *                 example: 100.00
  *     responses:
  *       200:
  *         description: Withdrawal successful

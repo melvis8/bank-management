@@ -23,11 +23,14 @@ const router = express.Router();
  *           schema:
  *             type: object
  *             required:
+ *               - student_id
  *               - first_name
  *               - last_name
  *               - email
  *               - password
  *             properties:
+ *               student_id:
+ *                 type: string
  *               first_name:
  *                 type: string
  *               last_name:

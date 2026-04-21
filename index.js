@@ -10,16 +10,13 @@ const RedisStore = require('rate-limit-redis').default;
 const { initializeDatabase } = require('./src/config/database');
 const { redisClient, initializeRedis } = require('./src/config/redis');
 const swaggerSpec = require('./src/config/swagger');
-const userRoutes = require('./src/routes/userRoutes');
+const studentRoutes = require('./src/routes/studentRoutes');
 const authRoutes = require('./src/routes/authRoutes');
 const transactionRoutes = require('./src/routes/transactionRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ─── DB Readiness Flag ───────────────────────────────────────────────────────
-// The server always starts immediately. This flag becomes true once the DB
-// connects — until then, /api/* routes return 503.
 let dbReady = false;
 
 // ─── Security Middleware ─────────────────────────────────────────────────────
@@ -72,10 +69,10 @@ app.get('/api-docs.json', (_req, res) => {
 // ─── Root Endpoint ───────────────────────────────────────────────────────────
 app.get('/', (_req, res) => {
   res.json({
-    message: 'Welcome to the Bank Management System API',
+    message: 'Welcome to the Student Bank Management System API',
     documentation: `${process.env.API_BASE_URL || `http://localhost:${PORT}`}/api-docs`,
     health: `${process.env.API_BASE_URL || `http://localhost:${PORT}`}/health`,
-    version: '1.0.0',
+    version: '1.1.0',
   });
 });
 
@@ -85,15 +82,14 @@ app.get('/health', (_req, res) => {
     status: 'OK',
     database: dbReady ? 'connected' : 'connecting',
     timestamp: new Date().toISOString(),
-    service: 'Bank Management System API',
-    version: '1.0.0',
+    service: 'Student Bank Management System API',
+    version: '1.1.0',
   });
 });
 
 // ─── DB Guard Middleware ─────────────────────────────────────────────────────
-// All /api/* routes pass through this — returns 503 until DB is ready
 app.use('/api/', (req, res, next) => {
-  if (!dbReady) {
+  if (!dbReady && process.env.NODE_ENV !== 'test') {
     return res.status(503).json({
       success: false,
       message: 'Database is still connecting. Please retry in a few seconds.',
@@ -104,7 +100,7 @@ app.use('/api/', (req, res, next) => {
 });
 
 // ─── API Routes ──────────────────────────────────────────────────────────────
-app.use('/api/users', userRoutes);
+app.use('/api/students', studentRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/transactions', transactionRoutes);
 
@@ -128,7 +124,6 @@ app.use((err, _req, res, _next) => {
 });
 
 // ─── Background DB Connector ──────────────────────────────────────────────────
-// Retries indefinitely every 5 s — self-heals when Neon wakes from pause
 const connectDBInBackground = async () => {
   while (true) {
     try {
@@ -137,6 +132,10 @@ const connectDBInBackground = async () => {
       console.log('\n✅  Database ready — all API endpoints are now active.\n');
       return;
     } catch (err) {
+      if (process.env.NODE_ENV === 'test') {
+          dbReady = true; // In test mode we assume DB is handled
+          return;
+      }
       const msg = err.message || err.code || 'ETIMEDOUT';
       console.error(`[DB] Connection failed (${msg}). Retrying in 5s...`);
       await new Promise((r) => setTimeout(r, 5000));
@@ -144,24 +143,21 @@ const connectDBInBackground = async () => {
   }
 };
 
-// ─── Start Server ─────────────────────────────────────────────────────────────
-const start = () => {
-  // HTTP server starts immediately — Swagger & health check are always available
-  app.listen(PORT, () => {
-    console.log(`\n🏦  Bank Management System API`);
-    console.log(`🚀  Server running on port ${PORT}`);
-    console.log(`📚  Swagger docs : http://localhost:${PORT}/api-docs`);
-    console.log(`❤️   Health check : http://localhost:${PORT}/health`);
-    console.log(`⏳  Connecting to database in background...\n`);
-  });
+// Start logic moved out of global scope for testing
+if (process.env.NODE_ENV !== 'test') {
+    app.listen(PORT, () => {
+        console.log(`\n🏦  Bank Management System API`);
+        console.log(`🚀  Server running on port ${PORT}`);
+        console.log(`📚  Swagger docs : http://localhost:${PORT}/api-docs`);
+        console.log(`❤️   Health check : http://localhost:${PORT}/health`);
+        console.log(`⏳  Connecting to database in background...\n`);
+    });
 
-  // Redis — non-blocking, best-effort
-  initializeRedis().catch((err) =>
-    console.error('[Redis] Startup error:', err.message)
-  );
+    initializeRedis().catch((err) =>
+        console.error('[Redis] Startup error:', err.message)
+    );
 
-  // Database — non-blocking, retries forever
-  connectDBInBackground();
-};
+    connectDBInBackground();
+}
 
-start();
+module.exports = app;
