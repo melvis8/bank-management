@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "test": "jest --detectOpenHandles"
+    "test": "jest --detectOpenHandles",
+    "test:report": "NODE_ENV=test jest --json --outputFile=test-results.json || true && node scripts/generateReport.js"
   },
   "keywords": [],
   "author": "",
