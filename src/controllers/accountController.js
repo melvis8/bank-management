@@ -1,112 +1,61 @@
 const { getPool } = require('../config/database');
 
 /**
- * @desc    Get all banks available in the system
- * @route   GET /api/accounts/banks
- * @access  Private
+ * @desc    Get all accounts (Admin)
+ * @route   GET /api/accounts
+ * @access  Private (Admin)
  */
-const getBanks = async (req, res) => {
+const getAllAccounts = async (req, res) => {
   try {
     const pool = getPool();
-    const result = await pool.query('SELECT * FROM banks ORDER BY name ASC');
+    const result = await pool.query(
+      `SELECT a.*, b.name as bank_name, u.email as user_email 
+       FROM accounts a 
+       JOIN banks b ON a.bank_id = b.id 
+       JOIN users u ON a.user_id = u.id 
+       ORDER BY a.created_at DESC`
+    );
     res.status(200).json({ success: true, data: result.rows });
   } catch (error) {
-    console.error('[GetBanks]', error);
-    res.status(500).json({ success: false, message: 'Server error fetching banks' });
+    res.status(500).json({ success: false, message: 'Error fetching accounts' });
   }
 };
 
 /**
- * @desc    Get single bank by ID
- * @route   GET /api/accounts/banks/:id
+ * @desc    Get single account by ID
+ * @route   GET /api/accounts/:id
  * @access  Private
  */
-const getBankById = async (req, res) => {
-  try {
-    const pool = getPool();
-    const result = await pool.query('SELECT * FROM banks WHERE id = $1', [req.params.id]);
-    if (result.rowCount === 0) return res.status(404).json({ success: false, message: 'Bank not found' });
-    res.status(200).json({ success: true, data: result.rows[0] });
-  } catch (error) {
-    res.status(500).json({ success: false, message: 'Error fetching bank' });
-  }
-};
-
-/**
- * @desc    Add a new bank (Admin)
- * @route   POST /api/accounts/banks
- * @access  Private (Admin)
- */
-const addBank = async (req, res) => {
-  const { name, code, type } = req.body;
-  if (!name || !code) return res.status(400).json({ success: false, message: 'Name and code required' });
-
+const getAccountById = async (req, res) => {
   try {
     const pool = getPool();
     const result = await pool.query(
-      'INSERT INTO banks (name, code, type) VALUES ($1, $2, $3) RETURNING *',
-      [name, code, type || 'bank']
+      `SELECT a.*, b.name as bank_name, u.email as user_email 
+       FROM accounts a 
+       JOIN banks b ON a.bank_id = b.id 
+       JOIN users u ON a.user_id = u.id 
+       WHERE a.id = $1`, 
+      [req.params.id]
     );
-    res.status(201).json({ success: true, data: result.rows[0] });
-  } catch (error) {
-    console.error('[AddBank]', error);
-    if (error.code === '23505') return res.status(400).json({ success: false, message: 'Bank code already exists' });
-    res.status(500).json({ success: false, message: 'Error adding bank' });
-  }
-};
-
-/**
- * @desc    Update a bank (Admin)
- * @route   PUT /api/accounts/banks/:id
- * @access  Private (Admin)
- */
-const updateBank = async (req, res) => {
-  const { name, code, type } = req.body;
-  try {
-    const pool = getPool();
-    const result = await pool.query(
-      `UPDATE banks 
-       SET name = COALESCE($1, name),
-           code = COALESCE($2, code),
-           type = COALESCE($3, type)
-       WHERE id = $4 RETURNING *`,
-      [name, code, type, req.params.id]
-    );
-    if (result.rowCount === 0) return res.status(404).json({ success: false, message: 'Bank not found' });
+    if (result.rowCount === 0) return res.status(404).json({ success: false, message: 'Account not found' });
     res.status(200).json({ success: true, data: result.rows[0] });
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Error updating bank' });
+    res.status(500).json({ success: false, message: 'Error fetching account' });
   }
 };
 
 /**
- * @desc    Delete a bank (Admin)
- * @route   DELETE /api/accounts/banks/:id
- * @access  Private (Admin)
- */
-const deleteBank = async (req, res) => {
-  try {
-    const pool = getPool();
-    const result = await pool.query('DELETE FROM banks WHERE id = $1 RETURNING id', [req.params.id]);
-    if (result.rowCount === 0) return res.status(404).json({ success: false, message: 'Bank not found' });
-    res.status(200).json({ success: true, message: 'Bank deleted successfully' });
-  } catch (error) {
-    console.error('[DeleteBank]', error);
-    res.status(500).json({ success: false, message: 'Error deleting bank. It might have active accounts.' });
-  }
-};
-
-/**
- * @desc    Create a new account for a user in a specific bank
+ * @desc    Create a new account (Admin or Self)
  * @route   POST /api/accounts
  * @access  Private
  */
 const createAccount = async (req, res) => {
-  const { bank_id, account_type, user_id } = req.body;
+  const { bank_id, account_type, user_id, initial_balance } = req.body;
+  
   let targetUserId = req.user.id;
   if (user_id && user_id !== req.user.id) {
     if (req.user.role !== 'admin') {
-      return res.status(403).json({ success: false, message: 'Only admins can create accounts for other users' });
+      return res.status(403).json({ success: false, message: 'Only admins can create accounts for others' });
     }
     targetUserId = user_id;
   }
@@ -117,36 +66,42 @@ const createAccount = async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+
+    // Constraint check: One account per user per bank
+    const check = await client.query('SELECT id FROM accounts WHERE user_id = $1 AND bank_id = $2', [targetUserId, bank_id]);
+    if (check.rowCount > 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ success: false, message: 'User already has an account in this bank' });
+    }
+
     const bankCheck = await client.query('SELECT code FROM banks WHERE id = $1', [bank_id]);
     if (bankCheck.rowCount === 0) {
       await client.query('ROLLBACK');
       return res.status(404).json({ success: false, message: 'Bank not found' });
     }
     const bankCode = bankCheck.rows[0].code;
+
     const randomSuffix = Math.floor(10000000 + Math.random() * 90000000);
     const accountNumber = `BMS-${bankCode}-${randomSuffix}`;
 
     const result = await client.query(
-      `INSERT INTO accounts (user_id, bank_id, account_number, account_type) 
-       VALUES ($1, $2, $3, $4) RETURNING *`,
-      [targetUserId, bank_id, accountNumber, account_type || 'savings']
+      `INSERT INTO accounts (user_id, bank_id, account_number, account_type, balance) 
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [targetUserId, bank_id, accountNumber, account_type || 'savings', initial_balance || 0]
     );
 
     await client.query('COMMIT');
-    res.status(201).json({ success: true, message: 'Account created successfully', data: result.rows[0] });
+    res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error) {
     await client.query('ROLLBACK');
-    if (error.constraint === 'unique_user_bank') {
-       return res.status(400).json({ success: false, message: 'User already has an account with this bank' });
-    }
-    res.status(500).json({ success: false, message: 'Server error creating account' });
+    res.status(500).json({ success: false, message: 'Error creating account' });
   } finally {
     client.release();
   }
 };
 
 /**
- * @desc    Update an account
+ * @desc    Update an account (Admin or Owner)
  * @route   PUT /api/accounts/:id
  * @access  Private
  */
@@ -154,12 +109,11 @@ const updateAccount = async (req, res) => {
   const { account_type, status, balance } = req.body;
   const pool = getPool();
   try {
-    const checkRes = await pool.query('SELECT user_id FROM accounts WHERE id = $1', [req.params.id]);
-    if (checkRes.rowCount === 0) return res.status(404).json({ success: false, message: 'Account not found' });
-    const accountOwnerId = checkRes.rows[0].user_id;
+    const check = await pool.query('SELECT user_id FROM accounts WHERE id = $1', [req.params.id]);
+    if (check.rowCount === 0) return res.status(404).json({ success: false, message: 'Account not found' });
 
-    if (req.user.role !== 'admin' && accountOwnerId !== req.user.id) {
-      return res.status(403).json({ success: false, message: 'Not authorized to update this account' });
+    if (req.user.role !== 'admin' && check.rows[0].user_id !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
     let query, params;
@@ -170,6 +124,7 @@ const updateAccount = async (req, res) => {
       query = `UPDATE accounts SET account_type = COALESCE($1, account_type), updated_at = NOW() WHERE id = $2 RETURNING *`;
       params = [account_type, req.params.id];
     }
+
     const result = await pool.query(query, params);
     res.status(200).json({ success: true, data: result.rows[0] });
   } catch (error) {
@@ -194,33 +149,11 @@ const deleteAccount = async (req, res) => {
 };
 
 /**
- * @desc    Get all accounts (Admin)
- * @route   GET /api/accounts
- * @access  Private (Admin)
- */
-const getAllAccounts = async (req, res) => {
-  try {
-    const pool = getPool();
-    const result = await pool.query(
-      `SELECT a.*, b.name as bank_name, u.email as user_email 
-       FROM accounts a 
-       JOIN banks b ON a.bank_id = b.id 
-       JOIN users u ON a.user_id = u.id 
-       ORDER BY a.created_at DESC`
-    );
-    res.status(200).json({ success: true, data: result.rows });
-  } catch (error) {
-    res.status(500).json({ success: false, message: 'Error fetching accounts' });
-  }
-};
-
-/**
  * @desc    Get accounts for current user
  * @route   GET /api/accounts/my-accounts
  * @access  Private
  */
 const getMyAccounts = async (req, res) => {
-  const userId = req.user.id;
   try {
     const pool = getPool();
     const result = await pool.query(
@@ -228,12 +161,12 @@ const getMyAccounts = async (req, res) => {
        FROM accounts a 
        JOIN banks b ON a.bank_id = b.id 
        WHERE a.user_id = $1`,
-      [userId]
+      [req.user.id]
     );
     res.status(200).json({ success: true, data: result.rows });
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Error fetching your accounts' });
+    res.status(500).json({ success: false, message: 'Error fetching accounts' });
   }
 };
 
-module.exports = { getBanks, getBankById, addBank, updateBank, deleteBank, createAccount, updateAccount, deleteAccount, getAllAccounts, getMyAccounts };
+module.exports = { getAllAccounts, getAccountById, createAccount, updateAccount, deleteAccount, getMyAccounts };
