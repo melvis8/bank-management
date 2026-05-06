@@ -5,38 +5,33 @@ const options = {
     openapi: '3.0.0',
     info: {
       title: 'Bank Management System API',
-      version: '1.0.0',
+      version: '1.2.0',
       description: `
-## Bank Management System REST API
+## Bank Management System REST API (Multi-Bank Edition)
 
-This API provides core banking user management functionality, built with Node.js and PostgreSQL (Neon).
+This API manages users, banks, accounts, and transactions across multiple financial systems.
 
-### Features
-- Add new bank users with account creation
-- Retrieve all users with pagination and filtering
-- Full input validation and error handling
-- Concurrent request handling via PostgreSQL connection pool
+### Core Features
+- **Multi-Bank Support**: Open accounts in different banks (ECOBANK, UBA, MOMO, etc.)
+- **Account Constraints**: One account per bank per user.
+- **Transactions**:
+  - Withdrawals: Max 500,000 XAF, 2% fee applied.
+  - Deposits: Min 100 XAF.
+  - Transfers: Instant validation of sender/recipient.
+- **Admin Management**: Full CRUD for users, banks, and accounts.
 
 ### Authentication
-> ⚠️ In production, all endpoints should be protected with JWT Bearer tokens. 
-> Add \`Authorization: Bearer <token>\` to all requests.
+Use the \`Auth\` tag to register and login. Copy the returned \`token\` and use the **Authorize** button above to authenticate all other requests.
       `,
       contact: {
         name: 'BMS API Support',
         email: 'support@bankms.com',
-      },
-      license: {
-        name: 'Proprietary',
       },
     },
     servers: [
       {
         url: process.env.API_BASE_URL || 'http://localhost:3000',
         description: 'Development server',
-      },
-      {
-        url: 'https://your-app-name.onrender.com',
-        description: 'Production server (Render)',
       },
     ],
     components: {
@@ -48,119 +43,71 @@ This API provides core banking user management functionality, built with Node.js
         },
       },
       schemas: {
-        CreateUserRequest: {
+        RegisterRequest: {
           type: 'object',
-          required: ['first_name', 'last_name', 'email'],
+          required: ['user_id', 'first_name', 'last_name', 'email', 'password', 'phone'],
           properties: {
-            first_name: {
-              type: 'string',
-              example: 'Jean',
-              description: 'User first name (2–100 characters)',
-            },
-            last_name: {
-              type: 'string',
-              example: 'Mbarga',
-              description: 'User last name (2–100 characters)',
-            },
-            email: {
-              type: 'string',
-              format: 'email',
-              example: 'jean.mbarga@email.com',
-              description: 'Unique email address',
-            },
-            phone: {
-              type: 'string',
-              example: '+237699000000',
-              description: 'Mobile phone number (optional)',
-            },
-            address: {
-              type: 'string',
-              example: 'Rue Nachtigal, Yaoundé, Cameroon',
-              description: 'Physical address (optional)',
-            },
-            account_type: {
-              type: 'string',
-              enum: ['savings', 'current', 'fixed_deposit'],
-              default: 'savings',
-              description: 'Type of bank account',
-            },
-            initial_deposit: {
-              type: 'number',
-              format: 'float',
-              example: 50000.0,
-              description: 'Initial deposit amount in XAF (optional, default 0)',
-            },
+            user_id: { type: 'string', example: 'U12345' },
+            first_name: { type: 'string', example: 'John' },
+            last_name: { type: 'string', example: 'Doe' },
+            email: { type: 'string', format: 'email', example: 'john.doe@email.com' },
+            password: { type: 'string', format: 'password', example: 'StrongPass123' },
+            phone: { type: 'string', example: '+237699000111' },
+            address: { type: 'string', example: 'Yaoundé, Cameroon' },
+          },
+        },
+        LoginRequest: {
+          type: 'object',
+          required: ['email', 'password'],
+          properties: {
+            email: { type: 'string', example: 'john.doe@email.com' },
+            password: { type: 'string', example: 'StrongPass123' },
+          },
+        },
+        CreateAccountRequest: {
+          type: 'object',
+          required: ['bank_id'],
+          properties: {
+            bank_id: { type: 'string', format: 'uuid', description: 'UUID of the bank' },
+            account_type: { type: 'string', enum: ['savings', 'current'], default: 'savings' },
+          },
+        },
+        TransactionRequest: {
+          type: 'object',
+          required: ['account_number', 'amount'],
+          properties: {
+            account_number: { type: 'string', example: 'BMS-ECOBANK-12345678' },
+            amount: { type: 'number', minimum: 100, example: 5000 },
+            reference: { type: 'string', example: 'Groceries' },
+          },
+        },
+        TransferRequest: {
+          type: 'object',
+          required: ['sender_account_number', 'recipient_account_number', 'amount'],
+          properties: {
+            sender_account_number: { type: 'string', example: 'BMS-ECOBANK-12345678' },
+            recipient_account_number: { type: 'string', example: 'BMS-UBA-87654321' },
+            amount: { type: 'number', example: 10000 },
+            reference: { type: 'string', example: 'Rent payment' },
           },
         },
         User: {
           type: 'object',
           properties: {
-            id: { type: 'string', format: 'uuid', example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' },
-            first_name: { type: 'string', example: 'Jean' },
-            last_name: { type: 'string', example: 'Mbarga' },
-            email: { type: 'string', example: 'jean.mbarga@email.com' },
-            phone: { type: 'string', example: '+237699000000', nullable: true },
-            address: { type: 'string', example: 'Yaoundé, Cameroon', nullable: true },
-            account_type: { type: 'string', example: 'savings' },
-            account_number: { type: 'string', example: 'BMS-20240115-482910' },
-            balance: { type: 'number', example: 50000.0 },
-            status: { type: 'string', example: 'active' },
+            id: { type: 'string', format: 'uuid' },
+            user_id: { type: 'string' },
+            first_name: { type: 'string' },
+            last_name: { type: 'string' },
+            email: { type: 'string' },
+            phone: { type: 'string' },
+            status: { type: 'string' },
             created_at: { type: 'string', format: 'date-time' },
-            updated_at: { type: 'string', format: 'date-time' },
-          },
-        },
-        UserResponse: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean', example: true },
-            message: { type: 'string', example: 'User account created successfully' },
-            data: { $ref: '#/components/schemas/User' },
-          },
-        },
-        UsersListResponse: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean', example: true },
-            message: { type: 'string', example: 'Users retrieved successfully' },
-            data: {
-              type: 'array',
-              items: { $ref: '#/components/schemas/User' },
-            },
-            pagination: {
-              type: 'object',
-              properties: {
-                total: { type: 'integer', example: 150 },
-                page: { type: 'integer', example: 1 },
-                limit: { type: 'integer', example: 20 },
-                totalPages: { type: 'integer', example: 8 },
-                hasNextPage: { type: 'boolean', example: true },
-                hasPreviousPage: { type: 'boolean', example: false },
-              },
-            },
-          },
-        },
-        ErrorResponse: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean', example: false },
-            message: { type: 'string', example: 'Validation failed' },
-            error: { type: 'string', example: 'VALIDATION_ERROR' },
-            errors: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  field: { type: 'string', example: 'email' },
-                  message: { type: 'string', example: 'Must be a valid email address' },
-                },
-              },
-            },
           },
         },
       },
     },
   },
-  apis: ['./src/routes/*.js', './src/controllers/*.js'],
+  apis: ['./src/routes/*.js'],
 };
 
 const swaggerSpec = swaggerJsdoc(options);

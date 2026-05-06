@@ -6,46 +6,27 @@ const router = express.Router();
 /**
  * @swagger
  * tags:
- *   name: Authentication
- *   description: User registration and login endpoints
+ *   name: Auth
+ *   description: User registration and login
  */
 
 /**
  * @swagger
  * /api/auth/register:
  *   post:
- *     summary: Register a new bank user
- *     tags: [Authentication]
+ *     summary: Register a new user
+ *     tags: [Auth]
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required:
- *               - student_id
- *               - first_name
- *               - last_name
- *               - email
- *               - password
- *             properties:
- *               student_id:
- *                 type: string
- *               first_name:
- *                 type: string
- *               last_name:
- *                 type: string
- *               email:
- *                 type: string
- *               password:
- *                 type: string
+ *             $ref: '#/components/schemas/RegisterRequest'
  *     responses:
  *       201:
  *         description: User registered successfully
  *       400:
- *         description: Validation error
- *       409:
- *         description: Email already in use
+ *         description: Invalid input or user already exists
  */
 router.post('/register', register);
 
@@ -53,25 +34,17 @@ router.post('/register', register);
  * @swagger
  * /api/auth/login:
  *   post:
- *     summary: Login user and get JWT
- *     tags: [Authentication]
+ *     summary: Login and get JWT token
+ *     tags: [Auth]
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required:
- *               - email
- *               - password
- *             properties:
- *               email:
- *                 type: string
- *               password:
- *                 type: string
+ *             $ref: '#/components/schemas/LoginRequest'
  *     responses:
  *       200:
- *         description: Successful login
+ *         description: Login successful
  *       401:
  *         description: Invalid credentials
  */

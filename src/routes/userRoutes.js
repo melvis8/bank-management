@@ -1,28 +1,119 @@
 const express = require('express');
-const { body } = require('express-validator');
 const { addUser, getAllUsers, getUserById, updateUser, deleteUser } = require('../controllers/userController');
 const { protect } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
-const userValidation = [
-  body('user_id').trim().notEmpty().withMessage('User ID (Matricule) is required'),
-  body('first_name').trim().notEmpty().withMessage('First name is required'),
-  body('last_name').trim().notEmpty().withMessage('Last name is required'),
-  body('email').trim().isEmail().withMessage('Must be a valid email'),
-];
+router.use(protect);
 
 /**
  * @swagger
  * tags:
  *   name: Users
- *   description: Bank user management
+ *   description: Admin user management
  */
 
-router.post('/', userValidation, addUser);
+/**
+ * @swagger
+ * /api/users:
+ *   post:
+ *     summary: Create a new user manually (Admin)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/RegisterRequest'
+ *     responses:
+ *       201:
+ *         description: User created
+ */
+router.post('/', addUser);
+
+/**
+ * @swagger
+ * /api/users:
+ *   get:
+ *     summary: List all users (Admin)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of users
+ */
 router.get('/', getAllUsers);
+
+/**
+ * @swagger
+ * /api/users/{id}:
+ *   get:
+ *     summary: Get user details and their accounts
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: User details
+ */
 router.get('/:id', getUserById);
+
+/**
+ * @swagger
+ * /api/users/{id}:
+ *   put:
+ *     summary: Update user info (Admin)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               first_name: { type: string }
+ *               last_name: { type: string }
+ *               status: { type: string, enum: [active, suspended] }
+ *     responses:
+ *       200:
+ *         description: Updated
+ */
 router.put('/:id', updateUser);
+
+/**
+ * @swagger
+ * /api/users/{id}:
+ *   delete:
+ *     summary: Delete a user (Admin)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Deleted
+ */
 router.delete('/:id', deleteUser);
 
 module.exports = router;

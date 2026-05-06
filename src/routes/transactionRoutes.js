@@ -1,5 +1,5 @@
 const express = require('express');
-const { deposit, withdraw, transfer } = require('../controllers/transactionController');
+const { deposit, withdraw, transfer, getTransactionHistory } = require('../controllers/transactionController');
 const { protect } = require('../middleware/authMiddleware');
 
 const router = express.Router();
@@ -17,7 +17,7 @@ router.use(protect);
  * @swagger
  * /api/transactions/deposit:
  *   post:
- *     summary: Deposit money to your account
+ *     summary: Deposit money into an account
  *     tags: [Transactions]
  *     security:
  *       - bearerAuth: []
@@ -26,17 +26,12 @@ router.use(protect);
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required: [amount]
- *             properties:
- *               amount:
- *                 type: number
- *                 example: 100.00
+ *             $ref: '#/components/schemas/TransactionRequest'
  *     responses:
  *       200:
  *         description: Deposit successful
- *       401:
- *         description: Unauthorized
+ *       400:
+ *         description: Invalid amount or account
  */
 router.post('/deposit', deposit);
 
@@ -44,7 +39,7 @@ router.post('/deposit', deposit);
  * @swagger
  * /api/transactions/withdraw:
  *   post:
- *     summary: Withdraw money from your account
+ *     summary: Withdraw money from an account (max 500k, 2% fee)
  *     tags: [Transactions]
  *     security:
  *       - bearerAuth: []
@@ -53,17 +48,12 @@ router.post('/deposit', deposit);
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required: [amount]
- *             properties:
- *               amount:
- *                 type: number
- *                 example: 100.00
+ *             $ref: '#/components/schemas/TransactionRequest'
  *     responses:
  *       200:
  *         description: Withdrawal successful
  *       400:
- *         description: Insufficient funds
+ *         description: Insufficient funds or limit exceeded
  */
 router.post('/withdraw', withdraw);
 
@@ -71,7 +61,7 @@ router.post('/withdraw', withdraw);
  * @swagger
  * /api/transactions/transfer:
  *   post:
- *     summary: Transfer money to another account
+ *     summary: Transfer money between accounts
  *     tags: [Transactions]
  *     security:
  *       - bearerAuth: []
@@ -80,23 +70,33 @@ router.post('/withdraw', withdraw);
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required: [amount, recipient_account_number]
- *             properties:
- *               amount:
- *                 type: number
- *                 example: 100.00
- *               recipient_account_number:
- *                 type: string
- *                 example: BMS-20240115-482910
+ *             $ref: '#/components/schemas/TransferRequest'
  *     responses:
  *       200:
  *         description: Transfer successful
- *       400:
- *         description: Insufficient funds or invalid identical account
  *       404:
- *         description: Recipient not found
+ *         description: Recipient account not found
  */
 router.post('/transfer', transfer);
+
+/**
+ * @swagger
+ * /api/transactions/history/{account_number}:
+ *   get:
+ *     summary: Get transaction history for an account
+ *     tags: [Transactions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: account_number
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: List of transactions
+ */
+router.get('/history/:account_number', getTransactionHistory);
 
 module.exports = router;
