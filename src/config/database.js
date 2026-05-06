@@ -57,9 +57,18 @@ const createPool = async () => {
 const runMigrations = async (client) => {
   await client.query(`CREATE EXTENSION IF NOT EXISTS pgcrypto;`);
 
-  // Cleanup students table if it exists from previous iteration
-  await client.query(`DROP TABLE IF EXISTS students CASCADE;`);
+  // 1. Banks Table (includes mobile money operators)
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS banks (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      name VARCHAR(100) NOT NULL,
+      code VARCHAR(20) UNIQUE NOT NULL,
+      type VARCHAR(20) NOT NULL DEFAULT 'bank' CHECK (type IN ('bank', 'mobile_money')),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
 
+  // 2. Users Table
   await client.query(`
     CREATE TABLE IF NOT EXISTS users (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -70,41 +79,63 @@ const runMigrations = async (client) => {
       password_hash VARCHAR(255),
       phone VARCHAR(20),
       address TEXT,
-      account_type VARCHAR(50) NOT NULL DEFAULT 'savings',
-      account_number VARCHAR(20) UNIQUE,
-      balance NUMERIC(15, 2) NOT NULL DEFAULT 0.00,
       status VARCHAR(20) NOT NULL DEFAULT 'active',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
 
-  // Ensure transactions table uses user_id
+  // 3. Accounts Table — one account per user per bank
   await client.query(`
-    DO $$ 
-    BEGIN 
-      IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='transactions' AND column_name='student_id') THEN
-        ALTER TABLE transactions RENAME COLUMN student_id TO user_id;
-      END IF;
-    END $$;
+    CREATE TABLE IF NOT EXISTS accounts (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      bank_id UUID NOT NULL REFERENCES banks(id) ON DELETE CASCADE,
+      account_number VARCHAR(20) UNIQUE NOT NULL,
+      account_type VARCHAR(50) NOT NULL DEFAULT 'savings',
+      balance NUMERIC(15, 2) NOT NULL DEFAULT 0.00,
+      status VARCHAR(20) NOT NULL DEFAULT 'active',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      CONSTRAINT unique_user_bank UNIQUE(user_id, bank_id)
+    );
   `);
 
+  // 4. Transactions Table
   await client.query(`
     CREATE TABLE IF NOT EXISTS transactions (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+      sender_account_number VARCHAR(20),
+      recipient_account_number VARCHAR(20),
       type VARCHAR(20) NOT NULL CHECK (type IN ('deposit', 'withdraw', 'transfer')),
-      amount NUMERIC(15, 2) NOT NULL,
+      amount NUMERIC(15, 2) NOT NULL CHECK (amount > 0),
+      fee NUMERIC(15, 2) NOT NULL DEFAULT 0.00,
       status VARCHAR(20) NOT NULL DEFAULT 'completed',
       reference TEXT,
-      recipient_account_number VARCHAR(20),
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
+
+  // Seed default banks and mobile money operators
+  const defaultBanks = [
+    ['ECOBANK Cameroun', 'ECOBANK', 'bank'],
+    ['United Bank for Africa', 'UBA', 'bank'],
+    ['Societe Generale Cameroun', 'SGC', 'bank'],
+    ['EXPRESS UNION Finance', 'EU', 'bank'],
+    ['MTN Mobile Money', 'MOMO', 'mobile_money'],
+    ['Orange Money', 'OM', 'mobile_money'],
+  ];
+
+  for (const [name, code, type] of defaultBanks) {
+    await client.query(
+      'INSERT INTO banks (name, code, type) VALUES ($1, $2, $3) ON CONFLICT (code) DO NOTHING',
+      [name, code, type]
+    );
+  }
 };
 
 const initializeDatabase = async () => {
-  console.log('[DB] Connecting to PostgreSQL (direct TCP/SSL)...');
+  console.log('[DB] Connecting to PostgreSQL...');
   if (!pool) await createPool();
 
   const client = await pool.connect();

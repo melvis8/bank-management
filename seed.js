@@ -37,16 +37,16 @@ const seedData = async () => {
                     [u.user_id, u.first_name, u.last_name, u.email, password_hash, u.phone, account_number, u.balance]
                 );
                 insertedUsers.push(result.rows[0]);
-                console.log(`✅ Créé : ${u.email} | ID: ${u.user_id} | Solde: ${u.balance} XAF`);
+                console.log(`Créé : ${u.email} | ID: ${u.user_id} | Solde: ${u.balance} XAF`);
             } else {
                 insertedUsers.push(exist.rows[0]);
-                console.log(`ℹ️  Saut : ${u.email} existe déjà.`);
+                console.log(`ℹSaut : ${u.email} existe déjà.`);
             }
         }
 
         console.log('\n--- Génération de Transactions ---');
         let txCount = 0;
-        
+
         for (let i = 0; i < insertedUsers.length; i++) {
             const current = insertedUsers[i];
 
@@ -64,15 +64,15 @@ const seedData = async () => {
                 txCount++;
             }
         }
-        
-        console.log(`✅ Créé ${txCount} transactions de test.`);
+
+        console.log(` Créé ${txCount} transactions de test.`);
 
         client.release();
-        console.log('\n🎉 Remplissage de la base de données terminé !');
-        console.log('\n💡 Pour charger la base de données, lancez : node seed.js');
+        console.log('\n Remplissage de la base de données terminé !');
+        console.log('\n Pour charger la base de données, lancez : node seed.js');
         process.exit(0);
     } catch (error) {
-        console.error('❌ Échec du remplissage :', error);
+        console.error(' Échec du remplissage :', error);
         process.exit(1);
     }
 };
