@@ -17,6 +17,22 @@ const getBanks = async (req, res) => {
 };
 
 /**
+ * @desc    Get single bank by ID
+ * @route   GET /api/accounts/banks/:id
+ * @access  Private
+ */
+const getBankById = async (req, res) => {
+  try {
+    const pool = getPool();
+    const result = await pool.query('SELECT * FROM banks WHERE id = $1', [req.params.id]);
+    if (result.rowCount === 0) return res.status(404).json({ success: false, message: 'Bank not found' });
+    res.status(200).json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error fetching bank' });
+  }
+};
+
+/**
  * @desc    Add a new bank (Admin)
  * @route   POST /api/accounts/banks
  * @access  Private (Admin)
@@ -34,7 +50,49 @@ const addBank = async (req, res) => {
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error) {
     console.error('[AddBank]', error);
+    if (error.code === '23505') return res.status(400).json({ success: false, message: 'Bank code already exists' });
     res.status(500).json({ success: false, message: 'Error adding bank' });
+  }
+};
+
+/**
+ * @desc    Update a bank (Admin)
+ * @route   PUT /api/accounts/banks/:id
+ * @access  Private (Admin)
+ */
+const updateBank = async (req, res) => {
+  const { name, code, type } = req.body;
+  try {
+    const pool = getPool();
+    const result = await pool.query(
+      `UPDATE banks 
+       SET name = COALESCE($1, name),
+           code = COALESCE($2, code),
+           type = COALESCE($3, type)
+       WHERE id = $4 RETURNING *`,
+      [name, code, type, req.params.id]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ success: false, message: 'Bank not found' });
+    res.status(200).json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error updating bank' });
+  }
+};
+
+/**
+ * @desc    Delete a bank (Admin)
+ * @route   DELETE /api/accounts/banks/:id
+ * @access  Private (Admin)
+ */
+const deleteBank = async (req, res) => {
+  try {
+    const pool = getPool();
+    const result = await pool.query('DELETE FROM banks WHERE id = $1 RETURNING id', [req.params.id]);
+    if (result.rowCount === 0) return res.status(404).json({ success: false, message: 'Bank not found' });
+    res.status(200).json({ success: true, message: 'Bank deleted successfully' });
+  } catch (error) {
+    console.error('[DeleteBank]', error);
+    res.status(500).json({ success: false, message: 'Error deleting bank. It might have active accounts.' });
   }
 };
 
@@ -45,8 +103,6 @@ const addBank = async (req, res) => {
  */
 const createAccount = async (req, res) => {
   const { bank_id, account_type, user_id } = req.body;
-  
-  // If user_id is provided, only admin can set it to someone else
   let targetUserId = req.user.id;
   if (user_id && user_id !== req.user.id) {
     if (req.user.role !== 'admin') {
@@ -55,23 +111,18 @@ const createAccount = async (req, res) => {
     targetUserId = user_id;
   }
 
-  if (!bank_id) {
-    return res.status(400).json({ success: false, message: 'bank_id is required' });
-  }
+  if (!bank_id) return res.status(400).json({ success: false, message: 'bank_id is required' });
 
   const pool = getPool();
   const client = await pool.connect();
-
   try {
     await client.query('BEGIN');
-
     const bankCheck = await client.query('SELECT code FROM banks WHERE id = $1', [bank_id]);
     if (bankCheck.rowCount === 0) {
       await client.query('ROLLBACK');
       return res.status(404).json({ success: false, message: 'Bank not found' });
     }
     const bankCode = bankCheck.rows[0].code;
-
     const randomSuffix = Math.floor(10000000 + Math.random() * 90000000);
     const accountNumber = `BMS-${bankCode}-${randomSuffix}`;
 
@@ -95,53 +146,33 @@ const createAccount = async (req, res) => {
 };
 
 /**
- * @desc    Update an account (User can update type, Admin can update anything)
+ * @desc    Update an account
  * @route   PUT /api/accounts/:id
  * @access  Private
  */
 const updateAccount = async (req, res) => {
   const { account_type, status, balance } = req.body;
   const pool = getPool();
-
   try {
-    // 1. Check if account exists
     const checkRes = await pool.query('SELECT user_id FROM accounts WHERE id = $1', [req.params.id]);
-    if (checkRes.rowCount === 0) {
-      return res.status(404).json({ success: false, message: 'Account not found' });
-    }
-
+    if (checkRes.rowCount === 0) return res.status(404).json({ success: false, message: 'Account not found' });
     const accountOwnerId = checkRes.rows[0].user_id;
 
-    // 2. Permission check
     if (req.user.role !== 'admin' && accountOwnerId !== req.user.id) {
       return res.status(403).json({ success: false, message: 'Not authorized to update this account' });
     }
 
-    // 3. Prepare fields
     let query, params;
     if (req.user.role === 'admin') {
-      query = `
-        UPDATE accounts 
-        SET account_type = COALESCE($1, account_type),
-            status = COALESCE($2, status),
-            balance = COALESCE($3, balance),
-            updated_at = NOW()
-        WHERE id = $4 RETURNING *`;
+      query = `UPDATE accounts SET account_type = COALESCE($1, account_type), status = COALESCE($2, status), balance = COALESCE($3, balance), updated_at = NOW() WHERE id = $4 RETURNING *`;
       params = [account_type, status, balance, req.params.id];
     } else {
-      // User can only update type
-      query = `
-        UPDATE accounts 
-        SET account_type = COALESCE($1, account_type),
-            updated_at = NOW()
-        WHERE id = $2 RETURNING *`;
+      query = `UPDATE accounts SET account_type = COALESCE($1, account_type), updated_at = NOW() WHERE id = $2 RETURNING *`;
       params = [account_type, req.params.id];
     }
-
     const result = await pool.query(query, params);
     res.status(200).json({ success: true, data: result.rows[0] });
   } catch (error) {
-    console.error('[UpdateAccount]', error);
     res.status(500).json({ success: false, message: 'Error updating account' });
   }
 };
@@ -155,12 +186,9 @@ const deleteAccount = async (req, res) => {
   const pool = getPool();
   try {
     const result = await pool.query('DELETE FROM accounts WHERE id = $1 RETURNING id', [req.params.id]);
-    if (result.rowCount === 0) {
-      return res.status(404).json({ success: false, message: 'Account not found' });
-    }
+    if (result.rowCount === 0) return res.status(404).json({ success: false, message: 'Account not found' });
     res.status(200).json({ success: true, message: 'Account deleted successfully' });
   } catch (error) {
-    console.error('[DeleteAccount]', error);
     res.status(500).json({ success: false, message: 'Error deleting account' });
   }
 };
@@ -182,7 +210,6 @@ const getAllAccounts = async (req, res) => {
     );
     res.status(200).json({ success: true, data: result.rows });
   } catch (error) {
-    console.error('[GetAllAccounts]', error);
     res.status(500).json({ success: false, message: 'Error fetching accounts' });
   }
 };
@@ -209,4 +236,4 @@ const getMyAccounts = async (req, res) => {
   }
 };
 
-module.exports = { getBanks, addBank, createAccount, updateAccount, deleteAccount, getAllAccounts, getMyAccounts };
+module.exports = { getBanks, getBankById, addBank, updateBank, deleteBank, createAccount, updateAccount, deleteAccount, getAllAccounts, getMyAccounts };
