@@ -45,7 +45,15 @@ const addBank = async (req, res) => {
  */
 const createAccount = async (req, res) => {
   const { bank_id, account_type, user_id } = req.body;
-  const targetUserId = user_id || req.user.id; // Allow admin to create for others
+  
+  // If user_id is provided, only admin can set it to someone else
+  let targetUserId = req.user.id;
+  if (user_id && user_id !== req.user.id) {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Only admins can create accounts for other users' });
+    }
+    targetUserId = user_id;
+  }
 
   if (!bank_id) {
     return res.status(400).json({ success: false, message: 'bank_id is required' });
@@ -83,6 +91,77 @@ const createAccount = async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error creating account' });
   } finally {
     client.release();
+  }
+};
+
+/**
+ * @desc    Update an account (User can update type, Admin can update anything)
+ * @route   PUT /api/accounts/:id
+ * @access  Private
+ */
+const updateAccount = async (req, res) => {
+  const { account_type, status, balance } = req.body;
+  const pool = getPool();
+
+  try {
+    // 1. Check if account exists
+    const checkRes = await pool.query('SELECT user_id FROM accounts WHERE id = $1', [req.params.id]);
+    if (checkRes.rowCount === 0) {
+      return res.status(404).json({ success: false, message: 'Account not found' });
+    }
+
+    const accountOwnerId = checkRes.rows[0].user_id;
+
+    // 2. Permission check
+    if (req.user.role !== 'admin' && accountOwnerId !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'Not authorized to update this account' });
+    }
+
+    // 3. Prepare fields
+    let query, params;
+    if (req.user.role === 'admin') {
+      query = `
+        UPDATE accounts 
+        SET account_type = COALESCE($1, account_type),
+            status = COALESCE($2, status),
+            balance = COALESCE($3, balance),
+            updated_at = NOW()
+        WHERE id = $4 RETURNING *`;
+      params = [account_type, status, balance, req.params.id];
+    } else {
+      // User can only update type
+      query = `
+        UPDATE accounts 
+        SET account_type = COALESCE($1, account_type),
+            updated_at = NOW()
+        WHERE id = $2 RETURNING *`;
+      params = [account_type, req.params.id];
+    }
+
+    const result = await pool.query(query, params);
+    res.status(200).json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    console.error('[UpdateAccount]', error);
+    res.status(500).json({ success: false, message: 'Error updating account' });
+  }
+};
+
+/**
+ * @desc    Delete an account (Admin only)
+ * @route   DELETE /api/accounts/:id
+ * @access  Private (Admin)
+ */
+const deleteAccount = async (req, res) => {
+  const pool = getPool();
+  try {
+    const result = await pool.query('DELETE FROM accounts WHERE id = $1 RETURNING id', [req.params.id]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, message: 'Account not found' });
+    }
+    res.status(200).json({ success: true, message: 'Account deleted successfully' });
+  } catch (error) {
+    console.error('[DeleteAccount]', error);
+    res.status(500).json({ success: false, message: 'Error deleting account' });
   }
 };
 
@@ -130,4 +209,4 @@ const getMyAccounts = async (req, res) => {
   }
 };
 
-module.exports = { getBanks, addBank, createAccount, getAllAccounts, getMyAccounts };
+module.exports = { getBanks, addBank, createAccount, updateAccount, deleteAccount, getAllAccounts, getMyAccounts };
