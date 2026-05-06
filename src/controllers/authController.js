@@ -6,7 +6,7 @@ const { getPool } = require('../config/database');
  * Register a new user (no bank account created at registration).
  */
 const register = async (req, res) => {
-  const { user_id, first_name, last_name, email, password, phone } = req.body;
+  const { user_id, first_name, last_name, email, password, phone, role } = req.body;
 
   try {
     const pool = getPool();
@@ -23,8 +23,8 @@ const register = async (req, res) => {
 
     // Create user (no account number here)
     const newUser = await pool.query(
-      'INSERT INTO users (user_id, first_name, last_name, email, password_hash, phone) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, user_id, email, first_name, last_name, phone',
-      [user_id, first_name, last_name, email, password_hash, phone]
+      'INSERT INTO users (user_id, first_name, last_name, email, password_hash, phone, role) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, user_id, email, first_name, last_name, phone, role',
+      [user_id, first_name, last_name, email, password_hash, phone, role || 'user']
     );
 
     res.status(201).json({
@@ -57,9 +57,13 @@ const login = async (req, res) => {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
-    const token = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET || 'bms_super_secret_fallback_key', { expiresIn: '24h' });
+    const token = jwt.sign(
+      { id: user.id, email: user.email, role: user.role }, 
+      process.env.JWT_SECRET || 'bms_super_secret_fallback_key', 
+      { expiresIn: '24h' }
+    );
 
-    // Return basic profile; account info obtained via /api/accounts endpoints
+    // Return profile including role
     res.json({
       success: true,
       token,
@@ -70,6 +74,7 @@ const login = async (req, res) => {
         last_name: user.last_name,
         email: user.email,
         phone: user.phone,
+        role: user.role
       },
     });
   } catch (error) {

@@ -68,7 +68,7 @@ const runMigrations = async (client) => {
     );
   `);
 
-  // 2. Users Table
+  // 2. Users Table (Added role column)
   await client.query(`
     CREATE TABLE IF NOT EXISTS users (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -79,6 +79,7 @@ const runMigrations = async (client) => {
       password_hash VARCHAR(255),
       phone VARCHAR(20),
       address TEXT,
+      role VARCHAR(20) NOT NULL DEFAULT 'user',
       status VARCHAR(20) NOT NULL DEFAULT 'active',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -138,15 +139,20 @@ const initializeDatabase = async () => {
   console.log('[DB] Connecting to PostgreSQL...');
   if (!pool) await createPool();
 
-  const client = await pool.connect();
   try {
-    await runMigrations(client);
-    console.log('[DB] Database initialized successfully ✅');
+    const client = await pool.connect();
+    try {
+      await runMigrations(client);
+      console.log('[DB] Database initialized successfully ✅');
+    } catch (err) {
+      console.error('[DB] Migration failed:', err.message);
+      throw err;
+    } finally {
+      client.release();
+    }
   } catch (err) {
-    console.error('[DB] Migration failed:', err.message);
+    console.error('[DB] Connection failed:', err.message);
     throw err;
-  } finally {
-    client.release();
   }
 };
 
