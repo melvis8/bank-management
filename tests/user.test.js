@@ -1,83 +1,395 @@
-const request = require('supertest');
-const app = require('../index');
-const { getPool } = require('../src/config/database');
+const db = require('../src/config/database');
+const bcrypt = require('bcryptjs');
 
-jest.mock('../src/config/database', () => {
-  const mClient = {
-    query: jest.fn(),
-    release: jest.fn(),
-  };
-  const mPool = {
-    connect: jest.fn(() => Promise.resolve(mClient)),
-    query: jest.fn(),
-  };
-  return {
-    getPool: jest.fn(() => mPool),
-    initializeDatabase: jest.fn(),
-  };
-});
+// Spy on methods
+const getPoolSpy = vi.spyOn(db, 'getPool');
+const genSaltSpy = vi.spyOn(bcrypt, 'genSalt');
+const hashSpy = vi.spyOn(bcrypt, 'hash');
 
-describe('User API CRUD', () => {
-  let mockClient;
+const { mockRequest, mockResponse } = require('./helpers');
+const userController = require('../src/controllers/userController');
 
-  beforeEach(async () => {
-    mockClient = await getPool().connect();
-    jest.clearAllMocks();
-    
-    const queryImpl = (sql) => {
-        if (['BEGIN', 'COMMIT', 'ROLLBACK'].includes(sql)) return Promise.resolve();
-        return Promise.resolve({ rowCount: 0, rows: [] });
-    };
+// Define mock DB pool and client
+const mockClient = {
+  query: vi.fn(),
+  release: vi.fn(),
+};
+const mockPool = {
+  connect: vi.fn().mockResolvedValue(mockClient),
+  query: vi.fn(),
+};
 
-    mockClient.query.mockImplementation(queryImpl);
-    getPool().query.mockImplementation(queryImpl);
+describe('User Controller', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getPoolSpy.mockReturnValue(mockPool);
+    mockPool.connect.mockResolvedValue(mockClient);
+    genSaltSpy.mockResolvedValue('mock-salt');
+    hashSpy.mockResolvedValue('mock-hash');
   });
 
-  describe('POST /api/users', () => {
-    it('should create a new user', async () => {
-      const newUser = {
-        user_id: 'USR123',
-        first_name: 'John',
-        last_name: 'Doe',
-        email: 'john@example.com',
-      };
+  describe('addUser (Admin)', () => {
+    it('should create a user successfully', async () => {
+      const req = mockRequest({
+        body: {
+          user_id: 'alice_smith',
+          first_name: 'Alice',
+          last_name: 'Smith',
+          email: 'alice@example.com',
+          password: 'password123',
+          phone: '987654321',
+          address: '123 Main St',
+          role: 'user',
+        },
+      });
+      const res = mockResponse();
 
-      mockClient.query.mockImplementation((sql) => {
-        if (sql.includes('SELECT id FROM users')) return Promise.resolve({ rowCount: 0, rows: [] });
-        if (sql.includes('INSERT INTO users')) return Promise.resolve({
+      // Mock DB: user doesn't exist, insert returns new user
+      mockPool.query.mockImplementation((sql, params) => {
+        if (sql.includes('SELECT id FROM users')) {
+          return Promise.resolve({ rowCount: 0, rows: [] });
+        }
+        if (sql.includes('INSERT INTO users')) {
+          return Promise.resolve({
             rowCount: 1,
-            rows: [{ ...newUser, id: 'uuid-123', account_number: 'ACC-123', balance: 0 }]
-        });
-        return Promise.resolve();
+            rows: [
+              {
+                id: 'new-user-uuid',
+                user_id: 'alice_smith',
+                email: 'alice@example.com',
+                first_name: 'Alice',
+                last_name: 'Smith',
+                role: 'user',
+              },
+            ],
+          });
+        }
+        return Promise.resolve({ rowCount: 0, rows: [] });
       });
 
-      const res = await request(app)
-        .post('/api/users')
-        .send(newUser);
+      await userController.addUser(req, res);
 
-      expect(res.status).toBe(201);
-      expect(res.body.success).toBe(true);
-      expect(res.body.data.user_id).toBe('USR123');
+      expect(res.status).toHaveBeenCalledWith(201);
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        data: {
+          id: 'new-user-uuid',
+          user_id: 'alice_smith',
+          email: 'alice@example.com',
+          first_name: 'Alice',
+          last_name: 'Smith',
+          role: 'user',
+        },
+      });
+    });
+
+    it('should return 400 if required fields are missing', async () => {
+      const req = mockRequest({
+        body: {
+          user_id: 'alice_smith',
+          first_name: 'Alice',
+          // missing last_name, email, password
+        },
+      });
+      const res = mockResponse();
+
+      await userController.addUser(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        success: false,
+        message: 'Missing required fields',
+      });
+    });
+
+    it('should return 400 if user_id or email already exists', async () => {
+      const req = mockRequest({
+        body: {
+          user_id: 'alice_smith',
+          first_name: 'Alice',
+          last_name: 'Smith',
+          email: 'alice@example.com',
+          password: 'password123',
+        },
+      });
+      const res = mockResponse();
+
+      // Mock DB: user exists
+      mockPool.query.mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 'existing-id' }] });
+
+      await userController.addUser(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        success: false,
+        message: 'User ID or Email already exists',
+      });
+    });
+
+    it('should return 500 on database error during user creation', async () => {
+      const req = mockRequest({
+        body: {
+          user_id: 'alice_smith',
+          first_name: 'Alice',
+          last_name: 'Smith',
+          email: 'alice@example.com',
+          password: 'password123',
+        },
+      });
+      const res = mockResponse();
+
+      mockPool.query.mockRejectedValueOnce(new Error('DB Query Error'));
+
+      await userController.addUser(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({
+        success: false,
+        message: 'Error creating user',
+      });
     });
   });
 
-  describe('GET /api/users', () => {
-    it('should return a list of users', async () => {
-      const impl = (sql) => {
-        if (sql.includes('COUNT(*)')) return Promise.resolve({ rows: [{ count: '1' }] });
-        if (sql.includes('SELECT * FROM users')) return Promise.resolve({ 
-            rowCount: 1, 
-            rows: [{ id: 'uuid-1', first_name: 'John' }] 
-        });
-        return Promise.resolve();
-      };
-      mockClient.query.mockImplementation(impl);
-      getPool().query.mockImplementation(impl);
+  describe('getAllUsers (Admin)', () => {
+    it('should return all users', async () => {
+      const req = mockRequest();
+      const res = mockResponse();
 
-      const res = await request(app).get('/api/users');
+      const mockUsers = [
+        { id: '1', user_id: 'user1', email: 'user1@example.com' },
+        { id: '2', user_id: 'user2', email: 'user2@example.com' },
+      ];
+      mockPool.query.mockResolvedValueOnce({ rows: mockUsers });
 
-      expect(res.status).toBe(200);
-      expect(res.body.data).toHaveLength(1);
+      await userController.getAllUsers(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        data: mockUsers,
+      });
+    });
+
+    it('should return 500 on database error during user list fetch', async () => {
+      const req = mockRequest();
+      const res = mockResponse();
+
+      mockPool.query.mockRejectedValueOnce(new Error('Fetch Error'));
+
+      await userController.getAllUsers(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({
+        success: false,
+        message: 'Error retrieving users',
+      });
+    });
+  });
+
+  describe('getUserById', () => {
+    it('should return user details with accounts if found', async () => {
+      const req = mockRequest({ params: { id: 'user-uuid' } });
+      const res = mockResponse();
+
+      const mockUser = { id: 'user-uuid', user_id: 'user1', email: 'user1@example.com' };
+      const mockAccounts = [
+        { id: 'acc-1', account_number: 'BMS-ECO-12345678', balance: '1000', bank_name: 'ECOBANK' },
+      ];
+
+      mockPool.query.mockImplementation((sql, params) => {
+        if (sql.includes('FROM users')) {
+          return Promise.resolve({ rowCount: 1, rows: [mockUser] });
+        }
+        if (sql.includes('FROM accounts')) {
+          return Promise.resolve({ rowCount: mockAccounts.length, rows: mockAccounts });
+        }
+        return Promise.resolve({ rowCount: 0, rows: [] });
+      });
+
+      await userController.getUserById(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        data: {
+          ...mockUser,
+          accounts: mockAccounts,
+        },
+      });
+    });
+
+    it('should return 404 if user not found', async () => {
+      const req = mockRequest({ params: { id: 'nonexistent-uuid' } });
+      const res = mockResponse();
+
+      mockPool.query.mockResolvedValueOnce({ rowCount: 0, rows: [] });
+
+      await userController.getUserById(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(404);
+      expect(res.json).toHaveBeenCalledWith({
+        success: false,
+        message: 'User not found',
+      });
+    });
+
+    it('should return 500 on database error', async () => {
+      const req = mockRequest({ params: { id: 'user-uuid' } });
+      const res = mockResponse();
+
+      mockPool.query.mockRejectedValueOnce(new Error('Database error'));
+
+      await userController.getUserById(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({
+        success: false,
+        message: 'Error retrieving user details',
+      });
+    });
+  });
+
+  describe('updateUser (Admin)', () => {
+    it('should update user successfully if found', async () => {
+      const req = mockRequest({
+        params: { id: 'user-uuid' },
+        body: { first_name: 'UpdatedName', phone: '555555' },
+      });
+      const res = mockResponse();
+
+      const mockUpdatedUser = { id: 'user-uuid', first_name: 'UpdatedName', phone: '555555' };
+      mockPool.query.mockResolvedValueOnce({ rowCount: 1, rows: [mockUpdatedUser] });
+
+      await userController.updateUser(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        data: mockUpdatedUser,
+      });
+    });
+
+    it('should return 404 if user not found for update', async () => {
+      const req = mockRequest({
+        params: { id: 'nonexistent-uuid' },
+        body: { first_name: 'UpdatedName' },
+      });
+      const res = mockResponse();
+
+      mockPool.query.mockResolvedValueOnce({ rowCount: 0, rows: [] });
+
+      await userController.updateUser(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(404);
+      expect(res.json).toHaveBeenCalledWith({
+        success: false,
+        message: 'User not found',
+      });
+    });
+
+    it('should return 500 on database error during update', async () => {
+      const req = mockRequest({
+        params: { id: 'user-uuid' },
+        body: { first_name: 'UpdatedName' },
+      });
+      const res = mockResponse();
+
+      mockPool.query.mockRejectedValueOnce(new Error('Update Error'));
+
+      await userController.updateUser(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({
+        success: false,
+        message: 'Error updating user',
+      });
+    });
+  });
+
+  describe('deleteUser (Admin)', () => {
+    it('should delete user successfully if found', async () => {
+      const req = mockRequest({ params: { id: 'user-uuid' } });
+      const res = mockResponse();
+
+      mockPool.query.mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 'user-uuid' }] });
+
+      await userController.deleteUser(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        message: 'User deleted successfully',
+      });
+    });
+
+    it('should return 404 if user not found for delete', async () => {
+      const req = mockRequest({ params: { id: 'nonexistent-uuid' } });
+      const res = mockResponse();
+
+      mockPool.query.mockResolvedValueOnce({ rowCount: 0, rows: [] });
+
+      await userController.deleteUser(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(404);
+      expect(res.json).toHaveBeenCalledWith({
+        success: false,
+        message: 'User not found',
+      });
+    });
+
+    it('should return 500 on database error during delete', async () => {
+      const req = mockRequest({ params: { id: 'user-uuid' } });
+      const res = mockResponse();
+
+      mockPool.query.mockRejectedValueOnce(new Error('Delete Error'));
+
+      await userController.deleteUser(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({
+        success: false,
+        message: 'Error deleting user',
+      });
+    });
+  });
+
+  describe('deleteAllUsers (Admin)', () => {
+    it('should delete all users except the active admin successfully', async () => {
+      const req = mockRequest({
+        user: { id: 'admin-uuid' },
+      });
+      const res = mockResponse();
+
+      mockPool.query.mockResolvedValueOnce({ rowCount: 5 });
+
+      await userController.deleteAllUsers(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        message: 'Deleted 5 users successfully. Admin account preserved.',
+      });
+      expect(mockPool.query).toHaveBeenCalledWith(
+        expect.stringContaining('DELETE FROM users WHERE id != $1'),
+        ['admin-uuid']
+      );
+    });
+
+    it('should return 500 on database error during bulk delete', async () => {
+      const req = mockRequest({
+        user: { id: 'admin-uuid' },
+      });
+      const res = mockResponse();
+
+      mockPool.query.mockRejectedValueOnce(new Error('Bulk Delete Error'));
+
+      await userController.deleteAllUsers(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({
+        success: false,
+        message: 'Error deleting all users',
+      });
     });
   });
 });

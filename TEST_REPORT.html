@@ -1,0 +1,1975 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bank Management API - Test Report</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --card-bg: rgba(17, 24, 39, 0.7);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --accent-success: #10b981;
+            --accent-error: #ef4444;
+            --accent-warning: #f59e0b;
+            --accent-blue: #3b82f6;
+            --text-main: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --text-muted: #6b7280;
+            --glow-success: rgba(16, 185, 129, 0.15);
+            --glow-error: rgba(239, 68, 68, 0.15);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 2.5rem 1.5rem;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.05) 0%, transparent 40%);
+            background-attachment: fixed;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Header section */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2.5rem;
+            border-bottom: 1px solid var(--card-border);
+            padding-bottom: 1.5rem;
+        }
+
+        .title-area h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2.25rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #3b82f6, #10b981);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        .title-area p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        .status-badge {
+            padding: 0.75rem 1.5rem;
+            border-radius: 50px;
+            font-weight: 700;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            box-shadow: 0 4px 20px var(--glow-success);
+        }
+
+        .status-badge.success {
+            background-color: rgba(16, 185, 129, 0.15);
+            color: var(--accent-success);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            box-shadow: 0 4px 20px rgba(16, 185, 129, 0.15);
+        }
+
+        .status-badge.failure {
+            background-color: rgba(239, 68, 68, 0.15);
+            color: var(--accent-error);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            box-shadow: 0 4px 20px rgba(239, 68, 68, 0.15);
+        }
+
+        /* Grid metrics */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .metric-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            backdrop-filter: blur(12px);
+            transition: transform 0.2s ease, border-color 0.2s ease;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-2px);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .metric-card .label {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .metric-card .value {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2.25rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .metric-card.success .value {
+            color: var(--accent-success);
+        }
+        
+        .metric-card.error .value {
+            color: var(--accent-error);
+        }
+
+        /* Coverage section */
+        .section-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .coverage-container {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 2rem;
+            margin-bottom: 2.5rem;
+            backdrop-filter: blur(12px);
+        }
+
+        .coverage-overview {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--card-border);
+            padding-bottom: 2rem;
+        }
+
+        .coverage-donut {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .coverage-donut svg {
+            width: 120px;
+            height: 120px;
+            transform: rotate(-90deg);
+        }
+
+        .coverage-donut circle {
+            fill: none;
+            stroke-width: 10;
+        }
+
+        .coverage-donut circle.bg {
+            stroke: rgba(255, 255, 255, 0.05);
+        }
+
+        .coverage-donut circle.val {
+            stroke: var(--accent-success);
+            stroke-linecap: round;
+            transition: stroke-dasharray 0.5s ease;
+        }
+
+        .coverage-donut circle.val.low {
+            stroke: var(--accent-error);
+        }
+        
+        .coverage-donut circle.val.med {
+            stroke: var(--accent-warning);
+        }
+
+        .donut-text {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-top: 0.75rem;
+        }
+
+        .donut-label {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            margin-top: 0.25rem;
+        }
+
+        /* Table files */
+        .table-wrapper {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 1rem;
+            border-bottom: 1px solid var(--card-border);
+            font-weight: 600;
+        }
+
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            font-size: 0.95rem;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        .file-name {
+            font-weight: 500;
+            color: var(--text-main);
+        }
+
+        .file-path {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            display: block;
+            margin-top: 0.25rem;
+        }
+
+        .bar-container {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .progress-bar-bg {
+            flex-grow: 1;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            overflow: hidden;
+            max-width: 120px;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            border-radius: 10px;
+        }
+
+        .progress-bar-fill.high { background-color: var(--accent-success); }
+        .progress-bar-fill.med { background-color: var(--accent-warning); }
+        .progress-bar-fill.low { background-color: var(--accent-error); }
+
+        .pct-val {
+            font-weight: 600;
+            font-size: 0.9rem;
+            min-width: 45px;
+        }
+
+        .pct-val.high { color: var(--accent-success); }
+        .pct-val.med { color: var(--accent-warning); }
+        .pct-val.low { color: var(--accent-error); }
+
+        /* Test suite list */
+        .suites-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .suite-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            overflow: hidden;
+            backdrop-filter: blur(12px);
+        }
+
+        .suite-header {
+            padding: 1.25rem 1.5rem;
+            background: rgba(255, 255, 255, 0.02);
+            border-bottom: 1px solid var(--card-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .suite-title-area {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .suite-status-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            font-weight: bold;
+        }
+
+        .suite-status-icon.passed {
+            background-color: rgba(16, 185, 129, 0.1);
+            color: var(--accent-success);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .suite-status-icon.failed {
+            background-color: rgba(239, 68, 68, 0.1);
+            color: var(--accent-error);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .suite-name {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.15rem;
+            font-weight: 600;
+        }
+
+        .suite-meta {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            display: flex;
+            gap: 1rem;
+        }
+
+        .tests-list {
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .test-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            background: rgba(255, 255, 255, 0.015);
+            border-radius: 8px;
+            border-left: 3px solid transparent;
+        }
+
+        .test-row.passed {
+            border-left-color: var(--accent-success);
+        }
+
+        .test-row.failed {
+            border-left-color: var(--accent-error);
+        }
+
+        .test-info {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .test-title {
+            font-size: 0.95rem;
+            font-weight: 500;
+        }
+
+        .test-status-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+        }
+
+        .test-status-label.passed { color: var(--accent-success); }
+        .test-status-label.failed { color: var(--accent-error); }
+
+        .test-duration {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .failure-message {
+            margin-top: 0.5rem;
+            padding: 1rem;
+            background: rgba(239, 68, 68, 0.08);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            border-radius: 6px;
+            color: #fca5a5;
+            font-family: monospace;
+            font-size: 0.85rem;
+            white-space: pre-wrap;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="title-area">
+                <h1>Bank Management API - Test Dashboard</h1>
+                <p>Test report automatically generated on 6/9/2026, 10:43:31 PM</p>
+            </div>
+            <div class="status-badge success">
+                <span>🟢 Success</span>
+            </div>
+        </header>
+
+        <!-- Global statistics -->
+        <div class="metrics-grid">
+            <div class="metric-card success">
+                <div class="label">Test Status</div>
+                <div class="value">PASS</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">Total Tests</div>
+                <div class="value">82</div>
+            </div>
+            <div class="metric-card success">
+                <div class="label">Passed</div>
+                <div class="value">82</div>
+            </div>
+            <div class="metric-card ">
+                <div class="label">Failed</div>
+                <div class="value">0</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">Duration</div>
+                <div class="value">2.53s</div>
+            </div>
+        </div>
+
+        <!-- Coverage summary -->
+        
+        <h2 class="section-title">📊 Code Coverage Metrics</h2>
+        <div class="coverage-container">
+            <div class="coverage-overview">
+                
+                    <div class="coverage-donut">
+                        <svg>
+                            <circle class="bg" cx="60" cy="60" r="50"></circle>
+                            <circle class="val high" cx="60" cy="60" r="50" 
+                                    stroke-dasharray="314.1592653589793" stroke-dashoffset="27.174776453551715"></circle>
+                        </svg>
+                        <div class="donut-text">91.35%</div>
+                        <div class="donut-label">STATEMENTS</div>
+                    </div>
+                    
+                    <div class="coverage-donut">
+                        <svg>
+                            <circle class="bg" cx="60" cy="60" r="50"></circle>
+                            <circle class="val med" cx="60" cy="60" r="50" 
+                                    stroke-dasharray="314.1592653589793" stroke-dashoffset="35.625660691708276"></circle>
+                        </svg>
+                        <div class="donut-text">88.66%</div>
+                        <div class="donut-label">BRANCHES</div>
+                    </div>
+                    
+                    <div class="coverage-donut">
+                        <svg>
+                            <circle class="bg" cx="60" cy="60" r="50"></circle>
+                            <circle class="val high" cx="60" cy="60" r="50" 
+                                    stroke-dasharray="314.1592653589793" stroke-dashoffset="0"></circle>
+                        </svg>
+                        <div class="donut-text">100%</div>
+                        <div class="donut-label">FUNCTIONS</div>
+                    </div>
+                    
+                    <div class="coverage-donut">
+                        <svg>
+                            <circle class="bg" cx="60" cy="60" r="50"></circle>
+                            <circle class="val high" cx="60" cy="60" r="50" 
+                                    stroke-dasharray="314.1592653589793" stroke-dashoffset="28.08583832309273"></circle>
+                        </svg>
+                        <div class="donut-text">91.06%</div>
+                        <div class="donut-label">LINES</div>
+                    </div>
+                    
+            </div>
+
+            <!-- Table breakdown -->
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>File</th>
+                            <th>Statements</th>
+                            <th>Branches</th>
+                            <th>Functions</th>
+                            <th>Lines</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        
+                            <tr>
+                                <td>
+                                    <span class="file-name">accountController.js</span>
+                                    <span class="file-path">src/controllers/accountController.js</span>
+                                </td>
+                                
+                                    <td>
+                                        <div class="bar-container">
+                                            <div class="progress-bar-bg">
+                                                <div class="progress-bar-fill high" style="width: 100%"></div>
+                                            </div>
+                                            <span class="pct-val high">100%</span>
+                                        </div>
+                                    </td>
+                                    
+                                    <td>
+                                        <div class="bar-container">
+                                            <div class="progress-bar-bg">
+                                                <div class="progress-bar-fill high" style="width: 96.42%"></div>
+                                            </div>
+                                            <span class="pct-val high">96.42%</span>
+                                        </div>
+                                    </td>
+                                    
+                                    <td>
+                                        <div class="bar-container">
+                                            <div class="progress-bar-bg">
+                                                <div class="progress-bar-fill high" style="width: 100%"></div>
+                                            </div>
+                                            <span class="pct-val high">100%</span>
+                                        </div>
+                                    </td>
+                                    
+                                    <td>
+                                        <div class="bar-container">
+                                            <div class="progress-bar-bg">
+                                                <div class="progress-bar-fill high" style="width: 100%"></div>
+                                            </div>
+                                            <span class="pct-val high">100%</span>
+                                        </div>
+                                    </td>
+                                    
+                            </tr>
+                            
+                            <tr>
+                                <td>
+                                    <span class="file-name">authController.js</span>
+                                    <span class="file-path">src/controllers/authController.js</span>
+                                </td>
+                                
+                                    <td>
+                                        <div class="bar-container">
+                                            <div class="progress-bar-bg">
+                                                <div class="progress-bar-fill high" style="width: 100%"></div>
+                                            </div>
+                                            <span class="pct-val high">100%</span>
+                                        </div>
+                                    </td>
+                                    
+                                    <td>
+                                        <div class="bar-container">
+                                            <div class="progress-bar-bg">
+                                                <div class="progress-bar-fill high" style="width: 90%"></div>
+                                            </div>
+                                            <span class="pct-val high">90%</span>
+                                        </div>
+                                    </td>
+                                    
+                                    <td>
+                                        <div class="bar-container">
+                                            <div class="progress-bar-bg">
+                                                <div class="progress-bar-fill high" style="width: 100%"></div>
+                                            </div>
+                                            <span class="pct-val high">100%</span>
+                                        </div>
+                                    </td>
+                                    
+                                    <td>
+                                        <div class="bar-container">
+                                            <div class="progress-bar-bg">
+                                                <div class="progress-bar-fill high" style="width: 100%"></div>
+                                            </div>
+                                            <span class="pct-val high">100%</span>
+                                        </div>
+                                    </td>
+                                    
+                            </tr>
+                            
+                            <tr>
+                                <td>
+                                    <span class="file-name">bankController.js</span>
+                                    <span class="file-path">src/controllers/bankController.js</span>
+                                </td>
+                                
+                                    <td>
+                                        <div class="bar-container">
+                                            <div class="progress-bar-bg">
+                                                <div class="progress-bar-fill high" style="width: 100%"></div>
+                                            </div>
+                                            <span class="pct-val high">100%</span>
+                                        </div>
+                                    </td>
+                                    
+                                    <td>
+                                        <div class="bar-container">
+                                            <div class="progress-bar-bg">
+                                                <div class="progress-bar-fill high" style="width: 100%"></div>
+                                            </div>
+                                            <span class="pct-val high">100%</span>
+                                        </div>
+                                    </td>
+                                    
+                                    <td>
+                                        <div class="bar-container">
+                                            <div class="progress-bar-bg">
+                                                <div class="progress-bar-fill high" style="width: 100%"></div>
+                                            </div>
+                                            <span class="pct-val high">100%</span>
+                                        </div>
+                                    </td>
+                                    
+                                    <td>
+                                        <div class="bar-container">
+                                            <div class="progress-bar-bg">
+                                                <div class="progress-bar-fill high" style="width: 100%"></div>
+                                            </div>
+                                            <span class="pct-val high">100%</span>
+                                        </div>
+                                    </td>
+                                    
+                            </tr>
+                            
+                            <tr>
+                                <td>
+                                    <span class="file-name">transactionController.js</span>
+                                    <span class="file-path">src/controllers/transactionController.js</span>
+                                </td>
+                                
+                                    <td>
+                                        <div class="bar-container">
+                                            <div class="progress-bar-bg">
+                                                <div class="progress-bar-fill med" style="width: 77.62%"></div>
+                                            </div>
+                                            <span class="pct-val med">77.62%</span>
+                                        </div>
+                                    </td>
+                                    
+                                    <td>
+                                        <div class="bar-container">
+                                            <div class="progress-bar-bg">
+                                                <div class="progress-bar-fill med" style="width: 79.71%"></div>
+                                            </div>
+                                            <span class="pct-val med">79.71%</span>
+                                        </div>
+                                    </td>
+                                    
+                                    <td>
+                                        <div class="bar-container">
+                                            <div class="progress-bar-bg">
+                                                <div class="progress-bar-fill high" style="width: 100%"></div>
+                                            </div>
+                                            <span class="pct-val high">100%</span>
+                                        </div>
+                                    </td>
+                                    
+                                    <td>
+                                        <div class="bar-container">
+                                            <div class="progress-bar-bg">
+                                                <div class="progress-bar-fill med" style="width: 77.62%"></div>
+                                            </div>
+                                            <span class="pct-val med">77.62%</span>
+                                        </div>
+                                    </td>
+                                    
+                            </tr>
+                            
+                            <tr>
+                                <td>
+                                    <span class="file-name">userController.js</span>
+                                    <span class="file-path">src/controllers/userController.js</span>
+                                </td>
+                                
+                                    <td>
+                                        <div class="bar-container">
+                                            <div class="progress-bar-bg">
+                                                <div class="progress-bar-fill high" style="width: 100%"></div>
+                                            </div>
+                                            <span class="pct-val high">100%</span>
+                                        </div>
+                                    </td>
+                                    
+                                    <td>
+                                        <div class="bar-container">
+                                            <div class="progress-bar-bg">
+                                                <div class="progress-bar-fill high" style="width: 94.11%"></div>
+                                            </div>
+                                            <span class="pct-val high">94.11%</span>
+                                        </div>
+                                    </td>
+                                    
+                                    <td>
+                                        <div class="bar-container">
+                                            <div class="progress-bar-bg">
+                                                <div class="progress-bar-fill high" style="width: 100%"></div>
+                                            </div>
+                                            <span class="pct-val high">100%</span>
+                                        </div>
+                                    </td>
+                                    
+                                    <td>
+                                        <div class="bar-container">
+                                            <div class="progress-bar-bg">
+                                                <div class="progress-bar-fill high" style="width: 100%"></div>
+                                            </div>
+                                            <span class="pct-val high">100%</span>
+                                        </div>
+                                    </td>
+                                    
+                            </tr>
+                            
+                            <tr>
+                                <td>
+                                    <span class="file-name">authMiddleware.js</span>
+                                    <span class="file-path">src/middleware/authMiddleware.js</span>
+                                </td>
+                                
+                                    <td>
+                                        <div class="bar-container">
+                                            <div class="progress-bar-bg">
+                                                <div class="progress-bar-fill high" style="width: 100%"></div>
+                                            </div>
+                                            <span class="pct-val high">100%</span>
+                                        </div>
+                                    </td>
+                                    
+                                    <td>
+                                        <div class="bar-container">
+                                            <div class="progress-bar-bg">
+                                                <div class="progress-bar-fill high" style="width: 100%"></div>
+                                            </div>
+                                            <span class="pct-val high">100%</span>
+                                        </div>
+                                    </td>
+                                    
+                                    <td>
+                                        <div class="bar-container">
+                                            <div class="progress-bar-bg">
+                                                <div class="progress-bar-fill high" style="width: 100%"></div>
+                                            </div>
+                                            <span class="pct-val high">100%</span>
+                                        </div>
+                                    </td>
+                                    
+                                    <td>
+                                        <div class="bar-container">
+                                            <div class="progress-bar-bg">
+                                                <div class="progress-bar-fill high" style="width: 100%"></div>
+                                            </div>
+                                            <span class="pct-val high">100%</span>
+                                        </div>
+                                    </td>
+                                    
+                            </tr>
+                            
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+
+        <!-- Test Suites -->
+        <h2 class="section-title">🛠️ Test Suites & Assertions</h2>
+        <div class="suites-container">
+            
+                <div class="suite-card">
+                    <div class="suite-header">
+                        <div class="suite-title-area">
+                            <div class="suite-status-icon passed">
+                                ✓
+                            </div>
+                            <span class="suite-name">account.test.js</span>
+                        </div>
+                        <div class="suite-meta">
+                            <span>22 / 22 Passed</span>
+                        </div>
+                    </div>
+                    <div class="tests-list">
+                        
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return a list of all accounts joined with user and bank</span>
+                                    </div>
+                                    <span class="test-duration">26ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 500 on database error during fetch all</span>
+                                    </div>
+                                    <span class="test-duration">3ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return account details if found</span>
+                                    </div>
+                                    <span class="test-duration">2ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 404 if account not found</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 500 on database error during fetch by ID</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should create an account for self successfully</span>
+                                    </div>
+                                    <span class="test-duration">6ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should allow admin to create an account for another user</span>
+                                    </div>
+                                    <span class="test-duration">2ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 403 if non-admin tries to create an account for another user</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 400 if bank_id is missing</span>
+                                    </div>
+                                    <span class="test-duration">2ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 400 and ROLLBACK if user already has an account at this bank</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 404 and ROLLBACK if bank does not exist</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 500 and ROLLBACK on DB error during transaction</span>
+                                    </div>
+                                    <span class="test-duration">2ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should update account type, status, and balance if user is admin</span>
+                                    </div>
+                                    <span class="test-duration">2ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should only update account type if user is owner and not admin</span>
+                                    </div>
+                                    <span class="test-duration">7ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 403 if user is not admin and not the owner of the account</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 404 if account not found for update</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 500 on database error during update</span>
+                                    </div>
+                                    <span class="test-duration">2ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should delete account successfully if found</span>
+                                    </div>
+                                    <span class="test-duration">2ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 404 if account not found for delete</span>
+                                    </div>
+                                    <span class="test-duration">2ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 500 on database error during delete</span>
+                                    </div>
+                                    <span class="test-duration">2ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return the logged-in user accounts</span>
+                                    </div>
+                                    <span class="test-duration">2ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 500 on database error during fetch my accounts</span>
+                                    </div>
+                                    <span class="test-duration">2ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                    </div>
+                </div>
+                
+                <div class="suite-card">
+                    <div class="suite-header">
+                        <div class="suite-title-area">
+                            <div class="suite-status-icon passed">
+                                ✓
+                            </div>
+                            <span class="suite-name">auth.test.js</span>
+                        </div>
+                        <div class="suite-meta">
+                            <span>7 / 7 Passed</span>
+                        </div>
+                    </div>
+                    <div class="tests-list">
+                        
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should register a user successfully</span>
+                                    </div>
+                                    <span class="test-duration">19ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 400 if user email or ID already exists</span>
+                                    </div>
+                                    <span class="test-duration">3ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 500 on database error during registration</span>
+                                    </div>
+                                    <span class="test-duration">50ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should login successfully with correct credentials</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 401 if user email is not found</span>
+                                    </div>
+                                    <span class="test-duration">2ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 401 if password does not match</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 500 on database error during login</span>
+                                    </div>
+                                    <span class="test-duration">3ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                    </div>
+                </div>
+                
+                <div class="suite-card">
+                    <div class="suite-header">
+                        <div class="suite-title-area">
+                            <div class="suite-status-icon passed">
+                                ✓
+                            </div>
+                            <span class="suite-name">bank.test.js</span>
+                        </div>
+                        <div class="suite-meta">
+                            <span>15 / 15 Passed</span>
+                        </div>
+                    </div>
+                    <div class="tests-list">
+                        
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return a list of banks sorted by name</span>
+                                    </div>
+                                    <span class="test-duration">28ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 500 on database error</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return bank details if found</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 404 if bank not found</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 500 on database error</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should create a bank successfully</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 400 if name or code is missing</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 400 if bank code already exists (23505 constraint error)</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 500 on other database errors</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should update bank successfully if found</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 404 if bank not found for update</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 500 on database error during update</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should delete bank successfully if found</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 404 if bank not found for delete</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 500 on database error (e.g. check for active accounts constraint)</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                    </div>
+                </div>
+                
+                <div class="suite-card">
+                    <div class="suite-header">
+                        <div class="suite-title-area">
+                            <div class="suite-status-icon passed">
+                                ✓
+                            </div>
+                            <span class="suite-name">middleware.test.js</span>
+                        </div>
+                        <div class="suite-meta">
+                            <span>7 / 7 Passed</span>
+                        </div>
+                    </div>
+                    <div class="tests-list">
+                        
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should authenticate successfully with a valid Bearer token</span>
+                                    </div>
+                                    <span class="test-duration">21ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 401 if no authorization header is provided</span>
+                                    </div>
+                                    <span class="test-duration">3ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 401 if token is not starting with Bearer</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 401 if token validation throws an error</span>
+                                    </div>
+                                    <span class="test-duration">2ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should pass if user role is admin</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 403 if user role is user (not admin)</span>
+                                    </div>
+                                    <span class="test-duration">2ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 403 if req.user is undefined</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                    </div>
+                </div>
+                
+                <div class="suite-card">
+                    <div class="suite-header">
+                        <div class="suite-title-area">
+                            <div class="suite-status-icon passed">
+                                ✓
+                            </div>
+                            <span class="suite-name">transaction.test.js</span>
+                        </div>
+                        <div class="suite-meta">
+                            <span>14 / 14 Passed</span>
+                        </div>
+                    </div>
+                    <div class="tests-list">
+                        
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should complete a deposit successfully</span>
+                                    </div>
+                                    <span class="test-duration">30ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 400 if account_number is missing</span>
+                                    </div>
+                                    <span class="test-duration">6ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 400 if amount is too low</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 404 and ROLLBACK if account is not found</span>
+                                    </div>
+                                    <span class="test-duration">2ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 403 and ROLLBACK if account does not belong to user</span>
+                                    </div>
+                                    <span class="test-duration">2ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 400 and ROLLBACK if account status is inactive</span>
+                                    </div>
+                                    <span class="test-duration">2ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should complete a withdrawal successfully, applying a 2% fee</span>
+                                    </div>
+                                    <span class="test-duration">3ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 400 if withdrawal amount exceeds maximum limit</span>
+                                    </div>
+                                    <span class="test-duration">40ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 400 and ROLLBACK if funds are insufficient (including fee)</span>
+                                    </div>
+                                    <span class="test-duration">2ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should transfer money successfully between accounts</span>
+                                    </div>
+                                    <span class="test-duration">3ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 400 if sender is equal to recipient account number</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 404 and ROLLBACK if recipient account is not found</span>
+                                    </div>
+                                    <span class="test-duration">2ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return transaction history with pagination</span>
+                                    </div>
+                                    <span class="test-duration">2ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 403 if account does not belong to logged-in user</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                    </div>
+                </div>
+                
+                <div class="suite-card">
+                    <div class="suite-header">
+                        <div class="suite-title-area">
+                            <div class="suite-status-icon passed">
+                                ✓
+                            </div>
+                            <span class="suite-name">user.test.js</span>
+                        </div>
+                        <div class="suite-meta">
+                            <span>17 / 17 Passed</span>
+                        </div>
+                    </div>
+                    <div class="tests-list">
+                        
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should create a user successfully</span>
+                                    </div>
+                                    <span class="test-duration">18ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 400 if required fields are missing</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 400 if user_id or email already exists</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 500 on database error during user creation</span>
+                                    </div>
+                                    <span class="test-duration">38ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return all users</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 500 on database error during user list fetch</span>
+                                    </div>
+                                    <span class="test-duration">2ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return user details with accounts if found</span>
+                                    </div>
+                                    <span class="test-duration">2ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 404 if user not found</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 500 on database error</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should update user successfully if found</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 404 if user not found for update</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 500 on database error during update</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should delete user successfully if found</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 404 if user not found for delete</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 500 on database error during delete</span>
+                                    </div>
+                                    <span class="test-duration">1ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should delete all users except the active admin successfully</span>
+                                    </div>
+                                    <span class="test-duration">4ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                            <div>
+                                <div class="test-row passed">
+                                    <div class="test-info">
+                                        <span class="test-status-label passed">
+                                            PASS
+                                        </span>
+                                        <span class="test-title">should return 500 on database error during bulk delete</span>
+                                    </div>
+                                    <span class="test-duration">3ms</span>
+                                </div>
+                                
+                            </div>
+                            
+                    </div>
+                </div>
+                
+        </div>
+    </div>
+</body>
+</html>
