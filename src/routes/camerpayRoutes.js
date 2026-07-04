@@ -52,6 +52,16 @@ const validate = (req, res, next) => {
  *             required:
  *               - account_number
  *               - amount
+ *               - method
+ *               - phone
+ *             example:
+ *               account_number: "BMS-ECOBANK-12345678"
+ *               amount: 5000
+ *               currency: "XAF"
+ *               method: "orange_money"
+ *               phone: "699123456"
+ *               description: "Payment for services"
+ *               idempotency_key: "pay-12345"
  *             properties:
  *               account_number:
  *                 type: string

@@ -18,6 +18,8 @@ const bankRoutes = require('./src/routes/bankRoutes');
 const camerpayRoutes = require('./src/routes/camerpayRoutes');
 
 const app = express();
+app.set('trust proxy', 1); // Trust first proxy (Render, Heroku, etc.) to fix express-rate-limit IP issues
+
 const PORT = process.env.PORT || 3000;
 
 let dbReady = false;
