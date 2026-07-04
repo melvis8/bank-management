@@ -99,7 +99,7 @@ const initiatePayment = async (req, res) => {
     }
 
     const reference = generateReference();
-    
+
     // Hardcoded to satisfy CamerPay dashboard lock
     const callbackUrl = 'https://rac-app.onrender.com/payments';
 
@@ -119,8 +119,8 @@ const initiatePayment = async (req, res) => {
       await client.query('ROLLBACK');
       console.error('[CamerPay] API call failed:', cpErr.message, cpErr.payload);
       return res.status(502).json({
-        success: false, 
-        message: 'Payment service temporarily unavailable', 
+        success: false,
+        message: 'Payment service temporarily unavailable',
         error: 'PAYMENT_GATEWAY_ERROR',
         gateway_message: cpErr.message,
         gateway_details: cpErr.payload
@@ -316,8 +316,8 @@ const handleWebhook = async (req, res) => {
       // Update the camerpay_payment record
       const newStatus = eventType === 'payment.completed' ? 'completed'
         : eventType === 'payment.failed' ? 'failed'
-        : eventType === 'payment.refunded' ? 'refunded'
-        : 'processing';
+          : eventType === 'payment.refunded' ? 'refunded'
+            : 'processing';
 
       await pool.query(
         `UPDATE camerpay_payments
