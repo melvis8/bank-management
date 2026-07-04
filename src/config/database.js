@@ -117,6 +117,31 @@ const runMigrations = async (client) => {
     );
   `);
 
+  // Add missing columns to transactions table (for databases created with older schema)
+  await client.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'transactions' AND column_name = 'sender_account_number'
+      ) THEN
+        ALTER TABLE transactions ADD COLUMN sender_account_number VARCHAR(20);
+      END IF;
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'transactions' AND column_name = 'recipient_account_number'
+      ) THEN
+        ALTER TABLE transactions ADD COLUMN recipient_account_number VARCHAR(20);
+      END IF;
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'transactions' AND column_name = 'fee'
+      ) THEN
+        ALTER TABLE transactions ADD COLUMN fee NUMERIC(15, 2) NOT NULL DEFAULT 0.00;
+      END IF;
+    END $$;
+  `);
+
   // 5. CamerPay Payments Table (internal — NEVER exposed via public API)
   await client.query(`
     CREATE TABLE IF NOT EXISTS camerpay_payments (
