@@ -154,10 +154,10 @@ const initiatePayment = async (req, res) => {
     // NO mention of CamerPay in the transactions table
     const txInsert = await client.query(
       `INSERT INTO transactions
-         (sender_account_number, type, amount, fee, status, reference)
-       VALUES ($1, 'deposit', $2, 0, 'completed', $3)
+         (type, amount, fee, status, reference)
+       VALUES ('deposit', $1, 0, 'completed', $2)
        RETURNING id`,
-      [account_number, parsedAmount, description || `Online payment`]
+      [parsedAmount, description || `Online payment`]
     );
     const transactionId = txInsert.rows[0].id;
 
