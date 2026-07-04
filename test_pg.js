@@ -8,9 +8,10 @@ async function test() {
     await initializeDatabase();
     const pool = getPool();
     const client = await pool.connect();
-    const res = await client.query('SELECT NOW()');
-    console.log('DB connected. Server time:', res.rows[0].now);
+    const res = await client.query('SELECT * FROM camerpay_webhook_events ORDER BY created_at DESC LIMIT 5');
+    console.log('Webhook events:', JSON.stringify(res.rows, null, 2));
     client.release();
+    process.exit(0);
   } catch(e) {
     console.error('DB Error: ', e.message);
   }
