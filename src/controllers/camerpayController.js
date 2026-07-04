@@ -100,8 +100,9 @@ const initiatePayment = async (req, res) => {
 
     const reference = generateReference();
 
-    // Hardcoded to satisfy CamerPay dashboard lock
-    const callbackUrl = 'https://rac-app.onrender.com/payments';
+    // Use this app's own base URL for the CamerPay callback
+    const baseUrl = (process.env.API_BASE_URL || '').replace(/\/+$/, '');
+    const callbackUrl = `${baseUrl}/api/payments/webhook`;
 
     // Call CamerPay API to process payment
     let camerpayResponse;
