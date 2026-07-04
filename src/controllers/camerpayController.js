@@ -99,7 +99,7 @@ const initiatePayment = async (req, res) => {
     }
 
     const reference = generateReference();
-    const baseUrl = (process.env.API_BASE_URL || `http://localhost:${process.env.PORT || 3000}`).replace(/\/+$/, '');
+    const baseUrl = (process.env.API_BASE_URL || `https://${req.get('host')}`).replace(/\/+$/, '');
     const callbackUrl = `${baseUrl}/api/payments/webhook`;
 
     // Call CamerPay API to process payment

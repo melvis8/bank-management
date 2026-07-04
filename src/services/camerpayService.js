@@ -52,8 +52,8 @@ const camerpayService = {
       currency: currency || 'XAF',
       customer_phone: phone,
       merchant_invoice_id: reference,
-      // merchant_callback_url: callbackUrl, // Omitted because CamerPay dashboard is locked to another app
-      // merchant_return_url: callbackUrl,   // Omitted because CamerPay dashboard is locked to another app
+      merchant_callback_url: callbackUrl,
+      merchant_return_url: callbackUrl, // Fallback to callbackUrl or a default URL
       source: 'api',
     };
 
