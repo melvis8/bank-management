@@ -121,9 +121,13 @@ const initiatePayment = async (req, res) => {
       });
     } catch (cpErr) {
       await client.query('ROLLBACK');
-      console.error('[CamerPay] API call failed:', cpErr.message);
+      console.error('[CamerPay] API call failed:', cpErr.message, cpErr.payload);
       return res.status(502).json({
-        success: false, message: 'Payment service temporarily unavailable', error: 'PAYMENT_GATEWAY_ERROR',
+        success: false, 
+        message: 'Payment service temporarily unavailable', 
+        error: 'PAYMENT_GATEWAY_ERROR',
+        gateway_message: cpErr.message,
+        gateway_details: cpErr.payload
       });
     }
 
