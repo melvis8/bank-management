@@ -104,7 +104,7 @@ router.post(
     body('account_number').notEmpty().withMessage('Account number is required'),
     body('amount').isFloat({ min: 100 }).withMessage('Amount must be at least 100 XAF'),
     body('currency').optional().isIn(['XAF', 'EUR', 'USD']).withMessage('Invalid currency'),
-    body('method').optional().isString().isIn(['momo', 'om', 'mtn', 'mobile_money', 'orange_money']).withMessage('Invalid payment method'),
+    body('method').optional().isString().withMessage('Payment method must be a string'),
     body('phone').optional().isString().withMessage('Phone number must be a string'),
     body('description').optional().isString().isLength({ max: 500 }),
     body('idempotency_key').optional().isString().isLength({ max: 255 }),

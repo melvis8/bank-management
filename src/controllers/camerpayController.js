@@ -36,12 +36,6 @@ const initiatePayment = async (req, res) => {
     method = method.toLowerCase();
     if (method === 'momo' || method === 'mtn') method = 'mobile_money';
     if (method === 'om') method = 'orange_money';
-
-    if (!['mobile_money', 'orange_money'].includes(method)) {
-      return res.status(400).json({
-        success: false, message: 'Invalid payment method. Use momo or om.', error: 'INVALID_METHOD',
-      });
-    }
   }
 
   if (!account_number) {
