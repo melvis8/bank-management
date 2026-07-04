@@ -27,8 +27,22 @@ const generateReference = () => {
 // ─── Payment Initiation ─────────────────────────────────────────────────────────
 
 const initiatePayment = async (req, res) => {
-  const { account_number, amount, currency, description, idempotency_key } = req.body;
+  const { account_number, amount, currency, description, idempotency_key, phone } = req.body;
+  let { method } = req.body;
   const userId = req.user.id;
+
+  // Map user-friendly methods to CamerPay API methods
+  if (method) {
+    method = method.toLowerCase();
+    if (method === 'momo' || method === 'mtn') method = 'mobile_money';
+    if (method === 'om') method = 'orange_money';
+
+    if (!['mobile_money', 'orange_money'].includes(method)) {
+      return res.status(400).json({
+        success: false, message: 'Invalid payment method. Use momo or om.', error: 'INVALID_METHOD',
+      });
+    }
+  }
 
   if (!account_number) {
     return res.status(400).json({
@@ -102,6 +116,8 @@ const initiatePayment = async (req, res) => {
         description: description || 'Mobile payment',
         reference,
         callbackUrl,
+        method,
+        phone,
       });
     } catch (cpErr) {
       await client.query('ROLLBACK');

@@ -45,16 +45,18 @@ const camerpayService = {
   /**
    * Create a payment on CamerPay
    */
-  createPayment: async ({ amount, currency, description, reference, callbackUrl }) => {
+  createPayment: async ({ amount, currency, description, reference, callbackUrl, method, phone }) => {
     const payload = {
-      amount: Math.round(amount * 100),
+      payment_method: method,
+      amount: Math.round(amount), // XAF typically doesn't use decimals, matching curl docs
       currency: currency || 'XAF',
-      description: description || 'Payment',
-      reference,
-      callback_url: callbackUrl,
+      customer_phone: phone,
+      merchant_invoice_id: reference,
+      merchant_callback_url: callbackUrl,
+      source: 'api',
     };
 
-    const response = await fetch(`${CAMERPAY_API_URL}/payments`, {
+    const response = await fetch(`${CAMERPAY_BASE_URL}/payment/initiate`, {
       method: 'POST',
       headers: createHeaders(),
       body: JSON.stringify(payload),
