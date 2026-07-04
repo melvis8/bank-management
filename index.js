@@ -15,6 +15,7 @@ const authRoutes = require('./src/routes/authRoutes');
 const transactionRoutes = require('./src/routes/transactionRoutes');
 const accountRoutes = require('./src/routes/accountRoutes');
 const bankRoutes = require('./src/routes/bankRoutes');
+const camerpayRoutes = require('./src/routes/camerpayRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -45,6 +46,20 @@ const limiter = rateLimit({
   },
 });
 app.use('/api/', limiter);
+
+// ─── Raw Body Capture (for webhook signature verification) ───────────────────
+app.use((req, res, next) => {
+  if (req.originalUrl === '/api/payments/webhook') {
+    let data = '';
+    req.on('data', chunk => { data += chunk; });
+    req.on('end', () => {
+      req.rawBody = data;
+      next();
+    });
+  } else {
+    next();
+  }
+});
 
 // ─── Body Parsing ────────────────────────────────────────────────────────────
 app.use(express.json({ limit: '10kb' }));
@@ -107,6 +122,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/accounts', accountRoutes);
 app.use('/api/banks', bankRoutes);
+app.use('/api/payments', camerpayRoutes);
 
 // ─── 404 Handler ─────────────────────────────────────────────────────────────
 app.use((req, res) => {

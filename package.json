@@ -8,7 +8,9 @@
     "dev": "nodemon index.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:report": "NODE_ENV=test vitest run --reporter=json --outputFile=test-results.json --coverage && node scripts/generateReport.js"
+    "test:report": "NODE_ENV=test vitest run --reporter=json --outputFile=test-results.json --coverage && node scripts/generateReport.js",
+    "seed": "node seed.js",
+    "seed:rich": "node mock-data.js seed"
   },
   "keywords": [],
   "author": "",

@@ -117,6 +117,54 @@ const runMigrations = async (client) => {
     );
   `);
 
+  // 5. CamerPay Payments Table (internal — NEVER exposed via public API)
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS camerpay_payments (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      transaction_id UUID REFERENCES transactions(id) ON DELETE SET NULL,
+      account_number VARCHAR(20) NOT NULL,
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      reference VARCHAR(50) UNIQUE NOT NULL,
+      camerpay_reference VARCHAR(255),
+      amount NUMERIC(15, 2) NOT NULL CHECK (amount > 0),
+      currency VARCHAR(3) NOT NULL DEFAULT 'XAF',
+      status VARCHAR(20) NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'processing', 'completed', 'failed', 'refunded')),
+      description TEXT,
+      idempotency_key VARCHAR(255) UNIQUE,
+      response_payload JSONB,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  // Add reference column if upgrading from previous schema
+  await client.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'camerpay_payments' AND column_name = 'reference'
+      ) THEN
+        ALTER TABLE camerpay_payments ADD COLUMN reference VARCHAR(50) UNIQUE;
+      END IF;
+    END $$;
+  `);
+
+  // 6. CamerPay Webhook Events Table (audit trail)
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS camerpay_webhook_events (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      camerpay_event_id VARCHAR(255),
+      event_type VARCHAR(100) NOT NULL,
+      payment_reference VARCHAR(255),
+      raw_payload JSONB NOT NULL,
+      status VARCHAR(20) NOT NULL DEFAULT 'received',
+      processed_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
   // Seed default banks and mobile money operators
   const defaultBanks = [
     ['ECOBANK Cameroun', 'ECOBANK', 'bank'],
