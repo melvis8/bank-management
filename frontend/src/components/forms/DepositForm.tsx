@@ -35,7 +35,7 @@ export function DepositForm({ accounts, onSuccess }: { accounts: Account[]; onSu
     formState: { errors },
   } = useForm<DepositFormInput, unknown, DepositFormValues>({
     resolver: zodResolver(depositSchema),
-    defaultValues: { account_number: accounts[0]?.account_number ?? '', amount: 0 },
+    defaultValues: { account_number: accounts[0]?.account_number ?? '' },
   })
 
   const handleConfirm = async () => {

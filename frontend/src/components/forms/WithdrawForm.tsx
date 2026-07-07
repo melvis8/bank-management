@@ -41,7 +41,7 @@ export function WithdrawForm({ accounts, onSuccess }: { accounts: Account[]; onS
     formState: { errors },
   } = useForm<WithdrawFormInput, unknown, WithdrawFormValues>({
     resolver: zodResolver(withdrawSchema),
-    defaultValues: { account_number: accounts[0]?.account_number ?? '', amount: 0 },
+    defaultValues: { account_number: accounts[0]?.account_number ?? '' },
   })
 
   const handleConfirm = async () => {

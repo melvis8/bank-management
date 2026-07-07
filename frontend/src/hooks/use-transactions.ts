@@ -16,7 +16,10 @@ function invalidateAfterMoneyMovement(
   queryClient: ReturnType<typeof useQueryClient>,
   accountNumbers: (string | undefined)[]
 ) {
+  // Invalidate the list of accounts (balance totals on dashboard)
   queryClient.invalidateQueries({ queryKey: queryKeys.accountsMine })
+  // Invalidate every single-account detail page (balance on AccountDetailPage)
+  queryClient.invalidateQueries({ queryKey: ['account'] })
   for (const accountNumber of accountNumbers) {
     if (!accountNumber) continue
     queryClient.invalidateQueries({ queryKey: ['transactions', accountNumber] })

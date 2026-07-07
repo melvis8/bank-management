@@ -48,7 +48,7 @@ export function TransferForm({ accounts, onSuccess }: TransferFormProps) {
     formState: { errors },
   } = useForm<TransferFormInput, unknown, TransferFormValues>({
     resolver: zodResolver(transferSchema),
-    defaultValues: { sender_account_number: accounts[0]?.account_number ?? '', amount: 0 },
+    defaultValues: { sender_account_number: accounts[0]?.account_number ?? '' },
   })
 
   const openConfirmation = (values: TransferFormValues) => {
