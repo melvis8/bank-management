@@ -1,5 +1,6 @@
 const { getPool } = require('../config/database');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 
 /**
  * @desc    Create a new user manually (Admin)
@@ -7,21 +8,24 @@ const bcrypt = require('bcryptjs');
  * @access  Private (Admin)
  */
 const addUser = async (req, res) => {
-  const { user_id, first_name, last_name, email, password, phone, address, role } = req.body;
+  const { first_name, last_name, email, password, phone, address, role } = req.body;
 
-  if (!user_id || !first_name || !last_name || !email || !password) {
+  if (!first_name || !last_name || !email || !password) {
     return res.status(400).json({ success: false, message: 'Missing required fields' });
   }
 
   const pool = getPool();
   try {
-    const existing = await pool.query('SELECT id FROM users WHERE user_id = $1 OR email = $2', [user_id, email]);
+    const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
     if (existing.rowCount > 0) {
-      return res.status(400).json({ success: false, message: 'User ID or Email already exists' });
+      return res.status(400).json({ success: false, message: 'Email already exists' });
     }
 
     const salt = await bcrypt.genSalt(10);
     const password_hash = await bcrypt.hash(password, salt);
+
+    // Auto-generate a unique user_id (e.g. USR-A1B2C3)
+    const user_id = `USR-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
 
     const result = await pool.query(
       `INSERT INTO users (user_id, first_name, last_name, email, password_hash, phone, address, role) 

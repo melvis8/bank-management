@@ -1,0 +1,52 @@
+# Render Infrastructure-as-Code
+# Deploy one Web Service that serves both the Express API and the React SPA.
+# https://render.com/docs/render-yaml
+
+services:
+  - type: web
+    name: bank-management-api
+    runtime: node
+    region: oregon          # Change to frankfurt or singapore if closer to your users
+    plan: free              # Change to starter for always-on (free tier sleeps after 15 min)
+    rootDir: .              # Root of the repo — where package.json lives
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+
+    envVars:
+      # ── Required ─────────────────────────────────────────────────────────────
+      - key: NODE_ENV
+        value: production
+
+      - key: PORT
+        value: 10000         # Render assigns this automatically; keep it here for clarity
+
+      # Set these in the Render dashboard (never commit secrets to this file):
+      - key: DATABASE_URL
+        sync: false          # Must be set manually in Render dashboard
+
+      - key: JWT_SECRET
+        sync: false          # Must be set manually in Render dashboard
+
+      - key: CAMERPAY_TOKEN
+        sync: false
+
+      - key: CAMERPAY_WEBHOOK_SECRET
+        sync: false
+
+      # ── Optional but recommended ─────────────────────────────────────────────
+      - key: API_BASE_URL
+        sync: false          # e.g. https://bank-management-mz1n.onrender.com
+
+      - key: FRONTEND_URL
+        sync: false          # Same as API_BASE_URL for a unified deploy
+
+      - key: CAMERPAY_BASE_URL
+        value: https://camerpay.biz/api
+
+      - key: CORS_ORIGIN
+        value: "*"           # Change to your domain once you have one
+
+      # Redis (optional — rate limiting falls back to in-memory if not set)
+      # - key: REDIS_URL
+      #   sync: false

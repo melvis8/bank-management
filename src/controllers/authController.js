@@ -1,18 +1,19 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const { getPool } = require('../config/database');
 
 /**
  * Register a new user (no bank account created at registration).
  */
 const register = async (req, res) => {
-  const { user_id, first_name, last_name, email, password, phone, role } = req.body;
+  const { first_name, last_name, email, password, phone, role } = req.body;
 
   try {
     const pool = getPool();
 
     // Check if user exists
-    const userExist = await pool.query('SELECT id FROM users WHERE email = $1 OR user_id = $2', [email, user_id]);
+    const userExist = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
     if (userExist.rowCount > 0) {
       return res.status(400).json({ success: false, message: 'User already exists' });
     }
@@ -20,6 +21,9 @@ const register = async (req, res) => {
     // Hash password
     const salt = await bcrypt.genSalt(10);
     const password_hash = await bcrypt.hash(password, salt);
+
+    // Auto-generate a unique user_id (e.g. USR-A1B2C3)
+    const user_id = `USR-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
 
     // Create user (no account number here)
     const newUser = await pool.query(

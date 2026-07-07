@@ -32,7 +32,6 @@ describe('User Controller', () => {
     it('should create a user successfully', async () => {
       const req = mockRequest({
         body: {
-          user_id: 'alice_smith',
           first_name: 'Alice',
           last_name: 'Smith',
           email: 'alice@example.com',
@@ -86,7 +85,6 @@ describe('User Controller', () => {
     it('should return 400 if required fields are missing', async () => {
       const req = mockRequest({
         body: {
-          user_id: 'alice_smith',
           first_name: 'Alice',
           // missing last_name, email, password
         },
@@ -122,14 +120,13 @@ describe('User Controller', () => {
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({
         success: false,
-        message: 'User ID or Email already exists',
+        message: 'Email already exists',
       });
     });
 
     it('should return 500 on database error during user creation', async () => {
       const req = mockRequest({
         body: {
-          user_id: 'alice_smith',
           first_name: 'Alice',
           last_name: 'Smith',
           email: 'alice@example.com',

@@ -1,0 +1,164 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@import "@fontsource/ibm-plex-sans/latin-400.css";
+@import "@fontsource/ibm-plex-sans/latin-500.css";
+@import "@fontsource/ibm-plex-sans/latin-600.css";
+@import "@fontsource/ibm-plex-sans/latin-700.css";
+@import "@fontsource/ibm-plex-mono/latin-400.css";
+@import "@fontsource/ibm-plex-mono/latin-500.css";
+@import "@fontsource/ibm-plex-mono/latin-600.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+    --font-heading: var(--font-sans);
+    --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar: var(--sidebar);
+
+    --color-success: var(--success);
+    --color-success-foreground: var(--success-foreground);
+    --color-warning: var(--warning);
+    --color-warning-foreground: var(--warning-foreground);
+
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-destructive-foreground: var(--destructive-foreground);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/*
+ * Bank Management System — brand palette.
+ * Deep ink navy (trust/institutional) + a teal accent deliberately avoiding
+ * the generic fintech purple/blue, on cool-gray neutrals (no cream, no
+ * pure black). See prompt.txt for the design brief this answers.
+ */
+:root {
+    --background: #F4F6F8;
+    --foreground: #1B2430;
+    --card: #FFFFFF;
+    --card-foreground: #1B2430;
+    --popover: #FFFFFF;
+    --popover-foreground: #1B2430;
+
+    --primary: #0B2545;
+    --primary-foreground: #F4F6F8;
+    --secondary: #E7ECF1;
+    --secondary-foreground: #0B2545;
+
+    --muted: #E7ECF1;
+    --muted-foreground: #55606E;
+    --accent: #E4F4F4;
+    --accent-foreground: #0F8B8D;
+
+    --success: #1E7F4F;
+    --success-foreground: #F4F6F8;
+    --warning: #B8860B;
+    --warning-foreground: #1B2430;
+    --destructive: #B3261E;
+    --destructive-foreground: #F4F6F8;
+
+    --border: #E2E8F0;
+    --input: #E2E8F0;
+    --ring: #0F8B8D;
+    --radius: 0.625rem;
+
+    --sidebar: #0B2545;
+    --sidebar-foreground: #F4F6F8;
+    --sidebar-primary: #0F8B8D;
+    --sidebar-primary-foreground: #F4F6F8;
+    --sidebar-accent: #13315C;
+    --sidebar-accent-foreground: #F4F6F8;
+    --sidebar-border: #13315C;
+    --sidebar-ring: #0F8B8D;
+}
+
+.dark {
+    --background: #0B1420;
+    --foreground: #E9EDF1;
+    --card: #101B2B;
+    --card-foreground: #E9EDF1;
+    --popover: #101B2B;
+    --popover-foreground: #E9EDF1;
+
+    --primary: #4C8FD6;
+    --primary-foreground: #0B1420;
+    --secondary: #16233A;
+    --secondary-foreground: #E9EDF1;
+
+    --muted: #16233A;
+    --muted-foreground: #93A2B8;
+    --accent: #123B3C;
+    --accent-foreground: #4FD1D2;
+
+    --success: #3FAE79;
+    --success-foreground: #0B1420;
+    --warning: #D6A429;
+    --warning-foreground: #0B1420;
+    --destructive: #E5675F;
+    --destructive-foreground: #0B1420;
+
+    --border: rgba(233, 237, 241, 0.12);
+    --input: rgba(233, 237, 241, 0.16);
+    --ring: #4FD1D2;
+
+    --sidebar: #071019;
+    --sidebar-foreground: #E9EDF1;
+    --sidebar-primary: #4FD1D2;
+    --sidebar-primary-foreground: #071019;
+    --sidebar-accent: #16233A;
+    --sidebar-accent-foreground: #E9EDF1;
+    --sidebar-border: #16233A;
+    --sidebar-ring: #4FD1D2;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    }
+  body {
+    @apply bg-background text-foreground;
+    }
+  html {
+    @apply font-sans;
+    }
+  /* Visible focus ring on every interactive element — never remove without replacing. */
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-ring;
+    }
+  .font-mono, code, kbd {
+    font-feature-settings: "tnum" 1, "zero" 1;
+    }
+}

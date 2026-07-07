@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
+    "build": "cd frontend && npm ci && npm run build",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:report": "NODE_ENV=test vitest run --reporter=json --outputFile=test-results.json --coverage && node scripts/generateReport.js",

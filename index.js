@@ -1,5 +1,7 @@
 require('dotenv').config();
 
+const path = require('path');
+const fs = require('fs');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -25,9 +27,15 @@ const PORT = process.env.PORT || 3000;
 let dbReady = false;
 
 // ─── Security Middleware ─────────────────────────────────────────────────────
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: false, // Disabled to allow the React SPA assets to load
+}));
+
+// Build a list of allowed CORS origins.
+// In production set CORS_ORIGIN to your frontend domain (or leave * during early testing).
+const corsOrigins = (process.env.CORS_ORIGIN || '*').split(',').map((o) => o.trim());
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
+  origin: corsOrigins.length === 1 && corsOrigins[0] === '*' ? '*' : corsOrigins,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
@@ -86,14 +94,26 @@ app.get('/api-docs.json', (_req, res) => {
 });
 
 // ─── Root Endpoint ───────────────────────────────────────────────────────────
-app.get('/', (_req, res) => {
+// /api/info always returns JSON API info (useful for health dashboards, curl tests)
+app.get('/api/info', (_req, res) => {
   res.json({
-    message: 'Welcome to the Bank Management System API',
+    message: 'Bank Management System API',
     documentation: `${process.env.API_BASE_URL || `http://localhost:${PORT}`}/api-docs`,
     health: `${process.env.API_BASE_URL || `http://localhost:${PORT}`}/health`,
     version: '1.2.0',
   });
 });
+
+// ─── Static Frontend (Unified Deploy) ────────────────────────────────────────
+// Serves the built React SPA from frontend/dist when it exists.
+// In development the Vite dev server handles the frontend (proxy to :3000).
+const FRONTEND_DIST = path.join(__dirname, 'frontend', 'dist');
+const distExists = fs.existsSync(FRONTEND_DIST);
+
+if (distExists) {
+  app.use(express.static(FRONTEND_DIST));
+  console.log(`[Static] Serving frontend from ${FRONTEND_DIST}`);
+}
 
 // ─── Health Check ────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => {
@@ -126,12 +146,29 @@ app.use('/api/accounts', accountRoutes);
 app.use('/api/banks', bankRoutes);
 app.use('/api/payments', camerpayRoutes);
 
-// ─── 404 Handler ─────────────────────────────────────────────────────────────
+// ─── SPA Fallback / 404 Handler ──────────────────────────────────────────────
+// For API routes that don't match: return JSON 404.
+// For any other route: serve index.html so React Router handles client-side navigation.
 app.use((req, res) => {
+  if (req.originalUrl.startsWith('/api/') || req.originalUrl.startsWith('/api-docs')) {
+    return res.status(404).json({
+      success: false,
+      message: `Route ${req.method} ${req.originalUrl} not found`,
+      error: 'NOT_FOUND',
+    });
+  }
+
+  // SPA catch-all: serve index.html for all other GET requests
+  const indexFile = path.join(__dirname, 'frontend', 'dist', 'index.html');
+  if (fs.existsSync(indexFile)) {
+    return res.sendFile(indexFile);
+  }
+
+  // No frontend build present (development mode without Vite proxy)
   res.status(404).json({
     success: false,
-    message: `Route ${req.method} ${req.originalUrl} not found`,
-    error: 'NOT_FOUND',
+    message: 'Frontend not built. Run `npm run build` or use `cd frontend && npm run dev`.',
+    error: 'FRONTEND_NOT_BUILT',
   });
 });
 

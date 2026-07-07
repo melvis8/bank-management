@@ -35,7 +35,6 @@ describe('Auth Controller', () => {
     it('should register a user successfully', async () => {
       const req = mockRequest({
         body: {
-          user_id: 'john_doe',
           first_name: 'John',
           last_name: 'Doe',
           email: 'john@example.com',
@@ -57,7 +56,7 @@ describe('Auth Controller', () => {
             rows: [
               {
                 id: 'user-uuid',
-                user_id: 'john_doe',
+                user_id: 'USR-MOCK',
                 email: 'john@example.com',
                 first_name: 'John',
                 last_name: 'Doe',
@@ -77,7 +76,7 @@ describe('Auth Controller', () => {
         success: true,
         data: {
           id: 'user-uuid',
-          user_id: 'john_doe',
+          user_id: 'USR-MOCK',
           email: 'john@example.com',
           first_name: 'John',
           last_name: 'Doe',
@@ -90,7 +89,6 @@ describe('Auth Controller', () => {
     it('should return 400 if user email or ID already exists', async () => {
       const req = mockRequest({
         body: {
-          user_id: 'john_doe',
           email: 'john@example.com',
           password: 'password123',
         },
@@ -112,7 +110,6 @@ describe('Auth Controller', () => {
     it('should return 500 on database error during registration', async () => {
       const req = mockRequest({
         body: {
-          user_id: 'john_doe',
           email: 'john@example.com',
           password: 'password123',
         },

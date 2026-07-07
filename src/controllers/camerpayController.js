@@ -100,9 +100,12 @@ const initiatePayment = async (req, res) => {
 
     const reference = generateReference();
 
-    // Use this app's own base URL for the CamerPay callback
+    // Use this app's own base URL for the CamerPay callback (webhook for payment notifications)
     const baseUrl = (process.env.API_BASE_URL || '').replace(/\/+$/, '');
     const callbackUrl = `${baseUrl}/api/payments/webhook`;
+    // Return URL: where the customer's browser is sent after completing payment
+    const frontendUrl = (process.env.FRONTEND_URL || process.env.API_BASE_URL || 'https://bank-management-mz1n.onrender.com').replace(/\/+$/, '');
+    const returnUrl = `${frontendUrl}/payments`;
 
     // Call CamerPay API to process payment
     let camerpayResponse;
@@ -113,6 +116,7 @@ const initiatePayment = async (req, res) => {
         description: description || 'Mobile payment',
         reference,
         callbackUrl,
+        returnUrl,
         method,
         phone,
       });
@@ -151,14 +155,14 @@ const initiatePayment = async (req, res) => {
     );
     const cpPaymentId = cpInsert.rows[0].id;
 
-    // Create a VISIBLE transaction that looks like a normal deposit
-    // NO mention of CamerPay in the transactions table
+    // Create a VISIBLE transaction that looks like a normal deposit.
+    // recipient_account_number tracks which account received the mobile money credit.
     const txInsert = await client.query(
       `INSERT INTO transactions
-         (type, amount, status, reference)
-       VALUES ('deposit', $1, 'completed', $2)
+         (recipient_account_number, type, amount, status, reference)
+       VALUES ($1, 'deposit', $2, 'completed', $3)
        RETURNING id`,
-      [parsedAmount, description || `Online payment`]
+      [account_number, parsedAmount, description || `Online payment`]
     );
     const transactionId = txInsert.rows[0].id;
 
