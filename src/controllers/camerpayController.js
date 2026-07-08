@@ -34,7 +34,7 @@ const initiatePayment = async (req, res) => {
   // Map user-friendly methods to CamerPay API methods
   if (method) {
     method = method.toLowerCase();
-    if (method === 'momo' || method === 'mtn') method = 'mobile_money';
+    if (method === 'momo' || method === 'mtn') method = 'mtn_momo';
     if (method === 'om') method = 'orange_money';
   }
 
