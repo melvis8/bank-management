@@ -133,6 +133,7 @@ const initiatePayment = async (req, res) => {
     }
 
     const camerpayReference = camerpayResponse?.reference || camerpayResponse?.id || reference;
+    const initialStatus = camerpayResponse?.status === 'completed' ? 'completed' : 'processing';
 
     // Insert into camerpay_payments (internal tracking — NEVER exposed)
     const cpInsert = await client.query(
@@ -147,7 +148,7 @@ const initiatePayment = async (req, res) => {
         camerpayReference,
         parsedAmount,
         currency || 'XAF',
-        camerpayResponse?.status === 'completed' ? 'completed' : 'processing',
+        initialStatus,
         description || null,
         idempotency_key || null,
         JSON.stringify(camerpayResponse || {}),
@@ -160,9 +161,9 @@ const initiatePayment = async (req, res) => {
     const txInsert = await client.query(
       `INSERT INTO transactions
          (recipient_account_number, type, amount, status, reference)
-       VALUES ($1, 'deposit', $2, 'completed', $3)
+       VALUES ($1, 'deposit', $2, $3, $4)
        RETURNING id`,
-      [account_number, parsedAmount, description || `Online payment`]
+      [account_number, parsedAmount, initialStatus, description || `Online payment`]
     );
     const transactionId = txInsert.rows[0].id;
 
@@ -172,25 +173,28 @@ const initiatePayment = async (req, res) => {
       [transactionId, cpPaymentId]
     );
 
-    // Credit the account
-    const newBalance = parseFloat(account.balance) + parsedAmount;
-    await client.query(
-      'UPDATE accounts SET balance = $1, updated_at = NOW() WHERE account_number = $2',
-      [newBalance, account_number]
-    );
+    // Credit the account ONLY if the payment is already completed synchronously
+    let newBalance = parseFloat(account.balance);
+    if (initialStatus === 'completed') {
+      newBalance = newBalance + parsedAmount;
+      await client.query(
+        'UPDATE accounts SET balance = $1, updated_at = NOW() WHERE account_number = $2',
+        [newBalance, account_number]
+      );
+    }
 
     await client.query('COMMIT');
 
     // Response reveals NOTHING about CamerPay
     res.status(200).json({
       success: true,
-      message: 'Payment completed successfully',
+      message: initialStatus === 'completed' ? 'Payment completed successfully' : 'Payment initiated and is processing',
       data: {
         account_number,
         amount: parsedAmount,
         new_balance: newBalance,
         reference,
-        status: 'completed',
+        status: initialStatus,
       },
     });
   } catch (error) {
@@ -318,29 +322,60 @@ const handleWebhook = async (req, res) => {
     );
 
     if (paymentReference) {
-      // Update the camerpay_payment record
       const newStatus = eventType === 'payment.completed' ? 'completed'
         : eventType === 'payment.failed' ? 'failed'
           : eventType === 'payment.refunded' ? 'refunded'
             : 'processing';
 
-      await pool.query(
-        `UPDATE camerpay_payments
-         SET status = $1, response_payload = $2, updated_at = NOW()
-         WHERE camerpay_reference = $3`,
-        [newStatus, JSON.stringify(req.body), paymentReference]
-      );
-
-      // Update the linked transaction status if payment failed
-      if (newStatus === 'failed' || newStatus === 'refunded') {
-        await pool.query(
-          `UPDATE transactions
-           SET status = $1
-           FROM camerpay_payments
-           WHERE camerpay_payments.transaction_id = transactions.id
-             AND camerpay_payments.camerpay_reference = $2`,
-          [newStatus === 'failed' ? 'failed' : 'refunded', paymentReference]
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        
+        // Fetch existing payment to check current status and get details
+        const cpCheck = await client.query(
+          'SELECT * FROM camerpay_payments WHERE camerpay_reference = $1 FOR UPDATE',
+          [paymentReference]
         );
+
+        if (cpCheck.rowCount > 0) {
+          const cpPayment = cpCheck.rows[0];
+          const currentStatus = cpPayment.status;
+
+          // Only process state changes
+          if (newStatus !== currentStatus && currentStatus !== 'completed' && currentStatus !== 'refunded') {
+            
+            // Update the camerpay_payment record
+            await client.query(
+              `UPDATE camerpay_payments
+               SET status = $1, response_payload = $2, updated_at = NOW()
+               WHERE id = $3`,
+              [newStatus, JSON.stringify(req.body), cpPayment.id]
+            );
+
+            // Update linked transaction
+            if (cpPayment.transaction_id) {
+              await client.query(
+                `UPDATE transactions SET status = $1 WHERE id = $2`,
+                [newStatus, cpPayment.transaction_id]
+              );
+            }
+
+            // Credit account if successfully completed
+            if (newStatus === 'completed') {
+              const parsedAmount = parseFloat(cpPayment.amount);
+              await client.query(
+                `UPDATE accounts SET balance = balance + $1, updated_at = NOW() WHERE account_number = $2`,
+                [parsedAmount, cpPayment.account_number]
+              );
+            }
+          }
+        }
+        await client.query('COMMIT');
+      } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('[CamerPay:handleWebhook DB error]', err);
+      } finally {
+        client.release();
       }
     }
 
